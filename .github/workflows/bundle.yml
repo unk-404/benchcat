@@ -7,7 +7,8 @@ name: bundle
 #          └─ assets     regenerate gallery + specimens; commit on main,
 #                        fail the diff on pull requests
 #               └─ action (3 OS)   the composite action itself, via `uses: ./`
-#                    └─ build (6)  release archives, only outside pull requests
+#                    └─ build (6)  release archives, only when binary inputs
+#                                  changed and never on pull requests
 #                         └─ publish   tag, archives, and the generated assets
 
 on:
@@ -29,6 +30,51 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Release builds are expensive (6 targets, attestations, a tag). Only run them
+  # when something that can change the binary changed: manifests, Rust sources,
+  # examples, cargo config or the toolchain pin. Scripts, action.yml, fonts,
+  # templates, docs and assets are exercised by the other jobs and never need a
+  # new release. A manual `workflow_dispatch` always builds.
+  changes:
+    name: detect binary changes
+    runs-on: ubuntu-24.04
+    outputs:
+      binary: ${{ steps.diff.outputs.binary }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: diff
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary=true
+          pattern='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|examples/|\.cargo/|rust-toolchain)'
+          case "${{ github.event_name }}" in
+            push)
+              before="${{ github.event.before }}"
+              after="${{ github.sha }}"
+              if [[ -z "$before" || "$before" =~ ^0+$ ]]; then
+                echo "no parent commit: building"
+              elif git diff --name-only "$before" "$after" >/dev/null 2>&1; then
+                changed=$(git diff --name-only "$before" "$after")
+                if grep -Eq "$pattern" <<<"$changed"; then
+                  echo "binary inputs changed:"
+                  grep -E "$pattern" <<<"$changed"
+                else
+                  binary=false
+                  echo "no binary inputs changed; skipping the release build"
+                fi
+              else
+                echo "cannot diff $before..$after: building"
+              fi
+              ;;
+            *)
+              echo "manual run or pull request: building"
+              ;;
+          esac
+          echo "binary=$binary" >> "$GITHUB_OUTPUT"
+
   verify:
     name: verify (${{ matrix.os }})
     strategy:
@@ -186,11 +232,26 @@ jobs:
           grep -q '<svg' target/action.svg
           echo "action rendered ${{ steps.bench.outputs.bytes }} bytes"
 
+      # The action job above uses tool_path, so the download path is otherwise
+      # untested. Exercise install.sh against the latest release on one runner.
+      - name: Installer against the latest release
+        if: runner.os == 'Linux'
+        shell: bash
+        env:
+          GITHUB_ACTION_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          export INPUT_VERSION=latest
+          export RUNNER_TOOL_CACHE="$RUNNER_TEMP/installer-check"
+          bash scripts/install.sh
+          bin="$RUNNER_TOOL_CACHE/bench-svg/latest-x86_64-unknown-linux-musl/bench-svg"
+          "$bin" --version
+
   # Everything below only runs outside pull requests.
   build:
     name: build ${{ matrix.target }}
-    if: github.event_name != 'pull_request'
-    needs: action
+    needs: [changes, action]
+    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -265,8 +326,8 @@ jobs:
 
   publish:
     name: publish
-    if: github.event_name != 'pull_request'
-    needs: [build, assets]
+    needs: [changes, build, assets]
+    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7

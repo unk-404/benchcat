@@ -173,6 +173,12 @@ test (3 OS) -> build 6 targets -> publish. Tags are `v$(date -u +%Y.%m.%d)-${GIT
 Action installs the binary from the release itself. Marketplace needs a SemVer tag, which date tags are
 not.
 
+A `changes` job gates `build`/`publish`: only `Cargo.toml`, `Cargo.lock`, `src/`, `examples/`, `.cargo/`
+and `rust-toolchain*` trigger a release build. Scripts, `action.yml`, fonts, templates, docs, assets and
+the workflow itself do not, because they cannot change the binary; `workflow_dispatch` always builds. The
+action job also runs `scripts/install.sh` against the latest release, so installer changes are still
+tested without a rebuild.
+
 ## Where to change what
 
 | Want | Touch |
