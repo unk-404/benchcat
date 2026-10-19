@@ -160,12 +160,15 @@ label = "Pool read · $1 workers"
 note = "4 KiB · batch 32"
 value = "value * $1 * 32"
 unit = "IOPS"
+group = "Thread pool"
 ```
 
 - `id` is an exact match; `match` is a regex whose groups become `$1`… in templates and values.
 - `label`/`note` support `$1` captures and `{param}` placeholders; an empty `note` clears it.
 - `value` is a small expression: numbers, `value`, `$1`…, `+ - * /`, parentheses and
   `min`/`max`/`abs`/`log10`/`sqrt`/`round`.
+- `group` (or a `group` field on the input) puts the row under a section heading; rows sharing a group
+  are drawn together, in the order the group first appears.
 - `only_matched = true` under `[render]` drops unmatched rows; the default appends them.
 
 ### Placeholders
@@ -211,6 +214,7 @@ cat, and keep the row for a script with no coverage at all.
 | [`10-criterion.svg`](assets/examples/10-criterion.svg) | `--format criterion` |
 | [`11-hyperfine.svg`](assets/examples/11-hyperfine.svg) | `--format hyperfine` |
 | [`12-rows.svg`](assets/examples/12-rows.svg) | `[[row]]` mapping |
+| [`13-sections.svg`](assets/examples/13-sections.svg) | `group` fields become section headings |
 
 ```bash
 cargo run --example gallery            # SVGs into assets/examples/

@@ -14,7 +14,11 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 
 use bench_svg::Font;
-use bench_svg::svg::PASTEL;
+use bench_svg::layout::{
+    NUMBER_BADGE_BODY_CENTER, NUMBER_BADGE_HEIGHT, NUMBER_SIZE, Rect, number_badge_width,
+    number_ink_center_x,
+};
+use bench_svg::svg::{PASTEL, number_cat};
 
 const OUT_DIR: &str = "assets/fonts";
 const PREVIEW_DIR: &str = "target/previews";
@@ -46,13 +50,9 @@ const SAMPLES: [(&str, Option<&str>, &str); 9] = [
         "The quick brown fox jumps over the lazy dog",
     ),
     ("Symbols", None, "± × · → ← ↑ ↓ ✓ ✗ № § ¶ ¥ € £"),
-    (
-        "日本語",
-        Some("Japanese"),
-        "順次読み込み・ランダム書き込み（1 GiB）",
-    ),
-    ("中文", Some("Chinese"), "顺序读写与随机读取（1 GiB）"),
-    ("한국어", Some("Korean"), "순차 읽기 및 임의 쓰기"),
+    ("日本語", Some("Japanese"), "いろはにほへと ちりぬるを"),
+    ("中文", Some("Chinese"), "天地玄黄，宇宙洪荒"),
+    ("한국어", Some("Korean"), "하늘과 바람과 별과 시"),
 ];
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -367,6 +367,11 @@ fn specimen(font: &Font) -> String {
             texts.push(script);
         }
     }
+    // Number badges: the cat that backs a row number, one to four digits.
+    let badge_texts = ["1", "12", "100", "1000"];
+    for text in badge_texts {
+        texts.push(text);
+    }
     let mut order: Vec<u16> = Vec::new();
     let mut index: HashMap<u16, usize> = HashMap::new();
     for value in &texts {
@@ -471,6 +476,48 @@ fn specimen(font: &Font) -> String {
         Align::Start,
         None,
     );
+
+    // The row-number cat, one to four digits, right-aligned in the hero card.
+    let badge_widths: Vec<f32> = badge_texts
+        .iter()
+        .map(|text| {
+            let ink = font.text_ink(text, NUMBER_SIZE);
+            number_badge_width(ink.right - ink.left)
+        })
+        .collect();
+    let badge_total: f32 =
+        badge_widths.iter().sum::<f32>() + 12.0 * (badge_widths.len() as f32 - 1.0);
+    let mut cursor = WIDTH - PADDING - 14.0 - badge_total;
+    for (badge_index, text) in badge_texts.iter().enumerate() {
+        let ink = font.text_ink(text, NUMBER_SIZE);
+        let ink_width = ink.right - ink.left;
+        let width = badge_widths[badge_index];
+        let y = hero_top + (hero_height - NUMBER_BADGE_HEIGHT) / 2.0;
+        number_cat(
+            &mut svg,
+            Rect {
+                x: cursor,
+                y,
+                w: width,
+                h: NUMBER_BADGE_HEIGHT,
+            },
+            PASTEL.dot_colors[badge_index % PASTEL.dot_colors.len()],
+        );
+        text_run(
+            &mut svg,
+            font,
+            &paths,
+            &index,
+            text,
+            number_ink_center_x(cursor, ink_width) - ink_width / 2.0,
+            y + NUMBER_BADGE_BODY_CENTER + ink.center_up(),
+            NUMBER_SIZE,
+            PASTEL.number,
+            Align::Start,
+            None,
+        );
+        cursor += width + 12.0;
+    }
 
     // Label and sample form one block, centred in the row so the two lines sit
     // closer together and both keep a comfortable margin from the card edges.

@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::font::Font;
 use crate::layout::{
     FOOTER_SIZE, LABEL_SIZE, LEGEND_SIZE, LayoutPlan, NOTE_SIZE, NUMBER_SIZE, RME_SIZE,
-    SERIES_VALUE_SIZE, SUBTITLE_SIZE, TITLE_SIZE, VALUE_SIZE,
+    SECTION_SIZE, SERIES_VALUE_SIZE, SUBTITLE_SIZE, TITLE_SIZE, VALUE_SIZE,
 };
 
 /// Palette and decoration settings for one visual theme.
@@ -175,6 +175,9 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
     for item in &plan.legend {
         texts.push((item.text.as_str(), LEGEND_SIZE));
     }
+    for section in &plan.sections {
+        texts.push((section.title.as_str(), SECTION_SIZE));
+    }
     for row in &plan.rows {
         texts.push((row.row.label.as_str(), LABEL_SIZE));
         if let Some(note) = row.row.note.as_deref() {
@@ -245,6 +248,20 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
         );
     }
 
+    for section in &plan.sections {
+        push_text(
+            &mut body,
+            &atlas,
+            font,
+            &section.title,
+            section.rect.x,
+            section.rect.y + font.ascent_px(SECTION_SIZE),
+            SECTION_SIZE,
+            theme.note,
+            Anchor::Start,
+        );
+    }
+
     for (index, row) in plan.rows.iter().enumerate() {
         let card = row.card;
         body.push_str("<g><title>");
@@ -262,14 +279,7 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
         ));
         let accent = theme.dot_colors[index % theme.dot_colors.len()];
         let pill = row.number_pill;
-        body.push_str(&format!(
-            "<rect x=\"{x:.1}\" y=\"{y:.1}\" width=\"{w:.1}\" height=\"{h:.1}\" rx=\"9\" \
-             fill=\"{accent}\" fill-opacity=\"0.95\"/>",
-            x = pill.x,
-            y = pill.y,
-            w = pill.w,
-            h = pill.h,
-        ));
+        number_cat(&mut body, pill, accent);
         // Centre on the glyph ink, not on the em box, so every index sits
         // optically centred however many digits it has.
         let number_ink = font.text_ink(&numbers[index], NUMBER_SIZE);
@@ -285,36 +295,44 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
             Anchor::Start,
         );
 
-        // Label block is centred in the card; this was the vertical drift the
-        // top-aligned version showed with single-line labels.
-        let has_note = row.row.note.is_some();
-        let label_line = font.line_height_px(LABEL_SIZE);
-        let note_line = font.line_height_px(NOTE_SIZE);
-        let content_height = if has_note {
-            label_line + note_line
-        } else {
-            label_line
+        // Stack label and note by their ink boxes, not their line boxes: the
+        // font's full ascent/descent would push the pair against the card edge
+        // and leave a visible gap between the two lines.
+        let label_ink = font.text_ink(&row.row.label, LABEL_SIZE);
+        let (label_baseline, note_baseline) = match row.row.note.as_deref() {
+            Some(note) => {
+                let note_ink = font.text_ink(note, NOTE_SIZE);
+                // Space the two lines from their real ink edges, not from the
+                // font's line boxes.
+                let gap = (LABEL_SIZE * 0.36).max(4.0);
+                let total =
+                    (label_ink.top - label_ink.bottom) + gap + (note_ink.top - note_ink.bottom);
+                let top = card.y + (card.h - total) / 2.0;
+                let label_baseline = top + label_ink.top;
+                let note_baseline = label_baseline - label_ink.bottom + gap + note_ink.top;
+                (label_baseline, Some(note_baseline))
+            }
+            None => (card.y + card.h / 2.0 + label_ink.center_up(), None),
         };
-        let block_top = card.y + (card.h - content_height) / 2.0;
         push_text(
             &mut body,
             &atlas,
             font,
             &row.row.label,
             row.label.x,
-            block_top + font.ascent_px(LABEL_SIZE),
+            label_baseline,
             LABEL_SIZE,
             theme.label,
             Anchor::Start,
         );
-        if let Some(note) = row.row.note.as_deref() {
+        if let (Some(note), Some(note_baseline)) = (row.row.note.as_deref(), note_baseline) {
             push_text(
                 &mut body,
                 &atlas,
                 font,
                 note,
                 row.label.x,
-                block_top + label_line + font.ascent_px(NOTE_SIZE),
+                note_baseline,
                 NOTE_SIZE,
                 theme.note,
                 Anchor::Start,
@@ -475,7 +493,9 @@ fn decorations(plan: &LayoutPlan, theme: &Theme) -> String {
         "<path d=\"M 872 62 l 3 6 7 1 -5 5 1 7 -6 -4 -6 4 1 -7 -5 -5 7 -1 z\" fill=\"{}\" fill-opacity=\"0.9\"/>",
         theme.star
     ));
-    let count = if plan.legend.is_empty() {
+    // Legend rows and section headings occupy the band the sparkles use, so
+    // drop the decoration when either is present.
+    let count = if plan.legend.is_empty() && plan.sections.is_empty() {
         ((plan.width - 140.0) / 118.0).floor().max(0.0) as usize
     } else {
         0
@@ -490,6 +510,44 @@ fn decorations(plan: &LayoutPlan, theme: &Theme) -> String {
         ));
     }
     out
+}
+
+/// The row number sits on a solid cat in profile: body, head, ears, tail and two
+/// legs. The body stretches with the digit count; everything else is fixed.
+/// The row number sits on a cat: body, head with merged ears, tail and one paw.
+/// Everything is drawn in a 30px-high design space and scaled to the badge, so
+/// the same shape works for a 33px badge and a 59px one.
+pub fn number_cat(svg: &mut String, pill: crate::layout::Rect, color: &str) {
+    let scale = pill.h / 30.0;
+    let w = pill.w / scale;
+    let bx = (w - 21.0).max(14.0);
+    svg.push_str(&format!(
+        "<g transform=\"translate({x:.2} {y:.2}) scale({scale:.4})\">",
+        x = pill.x,
+        y = pill.y
+    ));
+    // Tail.
+    svg.push_str(&format!(
+        "<path d=\"M 6 24 C 2 24 0 19 3 16\" fill=\"none\" stroke=\"{color}\" \
+         stroke-width=\"2.8\" stroke-linecap=\"round\"/>"
+    ));
+    // Body: flat back, a small dip, then a neck that climbs into the head.
+    svg.push_str(&format!(
+        "<path d=\"M 6 27 C 2 27 1 22 1 18 C 1 12 7 10 14 10 L {bx:.2} 10 \
+         C {c1:.2} 10 {c2:.2} 8.6 {e:.2} 8 L {r:.2} 20 L {r:.2} 27 Z\" fill=\"{color}\"/>",
+        c1 = bx + (w - 10.0 - bx) * 0.45,
+        c2 = w - 13.0,
+        e = w - 10.0,
+        r = w - 4.0,
+    ));
+    // Head with merged ears, drawn at 0.9 of the reference outline.
+    svg.push_str(&format!(
+        "<g transform=\"translate({hx:.2} 10) scale(0.9) translate(-35 -10)\">\
+         <path d=\"M 29 5.5 L 28 -0.5 L 34 3.5 L 40.5 0 L 41 5.5 C 43 8.5 43 15 38.5 16.5 \
+         C 34 18 30 17 28.5 12 C 27.5 8.5 28 6.5 29 5.5 Z\" fill=\"{color}\"/></g>",
+        hx = w - 9.0
+    ));
+    svg.push_str("</g>");
 }
 
 #[allow(clippy::too_many_arguments)]

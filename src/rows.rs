@@ -14,6 +14,7 @@ pub struct Mapped {
     pub note: Option<String>,
     pub unit: String,
     pub value: f64,
+    pub group: Option<String>,
 }
 
 /// Match `benchmark` against one rule. `id` is an exact match; `match` is a
@@ -70,6 +71,7 @@ pub fn apply(rule: &RowRule, benchmark: &Benchmark, captures: &[String]) -> Resu
         note,
         unit: rule.unit.clone().unwrap_or_else(|| benchmark.unit.clone()),
         value,
+        group: rule.group.clone(),
     })
 }
 
@@ -151,6 +153,7 @@ mod tests {
             note: Some("4 KiB · batch 32".to_owned()),
             unit: Some("IOPS".to_owned()),
             value: Some("value * $1 * 32".to_owned()),
+            group: Some("Pool".to_owned()),
         }
     }
 
@@ -174,11 +177,14 @@ mod tests {
             note: None,
             unit: None,
             value: None,
+            group: Some("File I/O".to_owned()),
         };
         let yes = benchmark("file.read.8MiB", 1.0, "GiB/s");
         let no = benchmark("file.write.8MiB", 1.0, "GiB/s");
         assert!(match_rule(&rule, &yes).unwrap().is_some());
         assert!(match_rule(&rule, &no).unwrap().is_none());
+        let mapped = apply(&rule, &yes, &[]).unwrap();
+        assert_eq!(mapped.group.as_deref(), Some("File I/O"));
     }
 
     #[test]
@@ -192,6 +198,7 @@ mod tests {
             note: None,
             unit: None,
             value: None,
+            group: None,
         };
         let mapped = apply(&rule, &bench, &[]).unwrap();
         assert_eq!(mapped.label.as_deref(), Some("read · 4w"));

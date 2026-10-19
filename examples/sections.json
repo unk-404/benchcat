@@ -1,0 +1,85 @@
+{
+  "schema": "bench-svg/report@1",
+  "meta": {
+    "tool": "bench-svg",
+    "tool_version": "0.1.0",
+    "commit": "a1b2c3d4e5f60718",
+    "platform": { "os": "Linux", "arch": "x86_64" }
+  },
+  "benchmarks": [
+    {
+      "id": "io.seq-read",
+      "group": "File I/O",
+      "label": "Sequential read",
+      "note": "8 MiB blocks",
+      "unit": "B/s",
+      "value": 2254857830,
+      "stats": { "rme_pct": 1.21 }
+    },
+    {
+      "id": "io.seq-write",
+      "group": "File I/O",
+      "label": "Sequential write",
+      "note": "8 MiB blocks",
+      "unit": "B/s",
+      "value": 2190433320,
+      "stats": { "rme_pct": 1.48 }
+    },
+    {
+      "id": "io.rand-read",
+      "group": "File I/O",
+      "label": "Random pread",
+      "note": "4 KiB",
+      "unit": "IOPS",
+      "value": 82400,
+      "stats": { "rme_pct": 2.34 }
+    },
+    {
+      "id": "pool.w4",
+      "group": "Thread pool",
+      "label": "Pool read · 4 workers",
+      "note": "4 KiB · batch 32",
+      "unit": "IOPS",
+      "value": 240000,
+      "stats": { "rme_pct": 4.11 }
+    },
+    {
+      "id": "pool.w8",
+      "group": "Thread pool",
+      "label": "Pool read · 8 workers",
+      "note": "4 KiB · batch 32",
+      "unit": "IOPS",
+      "value": 410000,
+      "stats": { "rme_pct": 5.28 }
+    },
+    {
+      "id": "pool.w16",
+      "group": "Thread pool",
+      "label": "Pool read · 16 workers",
+      "note": "4 KiB · batch 32",
+      "unit": "IOPS",
+      "value": 620000,
+      "stats": { "rme_pct": 6.42 }
+    },
+    {
+      "id": "crypto.sha256",
+      "group": "Crypto",
+      "label": "SHA-256",
+      "note": "1 MiB payload",
+      "unit": "ns/op",
+      "value": 1240000,
+      "direction": "lower",
+      "stats": { "rme_pct": 0.8 }
+    },
+    {
+      "id": "crypto.blake3",
+      "group": "Crypto",
+      "label": "BLAKE3",
+      "note": "1 MiB payload",
+      "unit": "ns/op",
+      "value": 210000,
+      "direction": "lower",
+      "stats": { "rme_pct": 1.1 }
+    }
+  ]
+}

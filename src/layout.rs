@@ -57,6 +57,8 @@ pub struct LegendItem {
 pub struct RowPlan {
     pub label: String,
     pub note: Option<String>,
+    /// Section heading this row belongs to; `None` rows form an untitled block.
+    pub group: Option<String>,
     pub values: Vec<SeriesValue>,
     pub rme_text: Option<String>,
     pub tooltip: String,
@@ -86,6 +88,12 @@ pub struct LegendBox {
     pub text: String,
 }
 
+/// A rendered section heading.
+pub struct SectionBox {
+    pub title: String,
+    pub rect: Rect,
+}
+
 pub struct LayoutPlan {
     pub width: f32,
     pub height: f32,
@@ -93,6 +101,7 @@ pub struct LayoutPlan {
     pub title: Rect,
     pub subtitle: Rect,
     pub legend: Vec<LegendBox>,
+    pub sections: Vec<SectionBox>,
     pub rows: Vec<RowBox>,
     pub footer: Rect,
     pub card_height: f32,
@@ -125,8 +134,73 @@ pub const VALUE_SIZE: f32 = 13.5;
 pub const SERIES_VALUE_SIZE: f32 = 10.5;
 pub const RME_SIZE: f32 = 10.0;
 pub const FOOTER_SIZE: f32 = 10.5;
-pub const NUMBER_SIZE: f32 = 11.0;
+pub const NUMBER_SIZE: f32 = 13.0;
+
+/// Number badge geometry, all in pixels. The badge is a cat: the digits sit on
+/// its body, between the tail end and the head.
+pub const NUMBER_BADGE_HEIGHT: f32 = 30.0;
+/// Left pad: the tail occupies the first few pixels of the badge.
+pub const NUMBER_BADGE_LEFT: f32 = 7.0;
+/// Gap between the digit ink and the head.
+pub const NUMBER_BADGE_GAP: f32 = 5.0;
+/// Width reserved for the head (a 0.9-scaled copy of the 16px head path).
+pub const NUMBER_BADGE_HEAD: f32 = 15.0;
+/// Right pad after the head.
+pub const NUMBER_BADGE_RIGHT: f32 = 2.0;
+/// Vertical centre of the cat's body inside the 30px badge.
+pub const NUMBER_BADGE_BODY_CENTER: f32 = 18.5;
+
+/// Badge width for a digit string with `ink_width` pixels of ink.
+pub fn number_badge_width(ink_width: f32) -> f32 {
+    NUMBER_BADGE_LEFT + ink_width + NUMBER_BADGE_GAP + NUMBER_BADGE_HEAD + NUMBER_BADGE_RIGHT
+}
+
+/// Horizontal centre of the digit ink inside a badge starting at `badge_x`.
+pub fn number_ink_center_x(badge_x: f32, ink_width: f32) -> f32 {
+    badge_x + NUMBER_BADGE_LEFT + ink_width / 2.0
+}
+
+struct BadgeGeometry {
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    ink_width: f32,
+}
+
+/// Each row's badge is as wide as its own digits, then centred in the slot.
+fn badge_geometry(card: Rect, slot_width: f32, ordinal: usize, font: &Font) -> BadgeGeometry {
+    let digits = ordinal.to_string();
+    let ink = font.text_ink(&digits, NUMBER_SIZE);
+    let ink_width = ink.right - ink.left;
+    let w = number_badge_width(ink_width);
+    BadgeGeometry {
+        x: card.x + 14.0 + (slot_width - w) / 2.0,
+        y: card.y + (card.h - NUMBER_BADGE_HEIGHT) / 2.0,
+        w,
+        h: NUMBER_BADGE_HEIGHT,
+        ink_width,
+    }
+}
 pub const LEGEND_SIZE: f32 = 11.0;
+pub const SECTION_SIZE: f32 = 11.0;
+
+/// Rows grouped by their `group` field, in first-seen order. Rows without a
+/// group form one untitled block.
+fn sections_of(rows: &[RowPlan]) -> Vec<(Option<String>, Vec<usize>)> {
+    let mut sections: Vec<(Option<String>, Vec<usize>)> = Vec::new();
+    let mut index: std::collections::HashMap<Option<String>, usize> =
+        std::collections::HashMap::new();
+    for (row_index, row) in rows.iter().enumerate() {
+        let key = row.group.clone();
+        let slot = *index.entry(key.clone()).or_insert_with(|| {
+            sections.push((key, Vec::new()));
+            sections.len() - 1
+        });
+        sections[slot].1.push(row_index);
+    }
+    sections
+}
 
 pub fn layout(
     font: &Font,
@@ -137,11 +211,13 @@ pub fn layout(
     let multi_series = rows.iter().any(|row| row.values.len() > 1);
     let series_count = rows.iter().map(|row| row.values.len()).max().unwrap_or(1);
 
-    // The number chip is a circle for 1-2 digits and grows into a pill for
-    // 100+, so three-digit indices never spill outside their badge.
-    let number_text = rows.len().max(1).to_string();
-    let pill_width = (font.text_width(&number_text, NUMBER_SIZE) + 12.0).max(18.0);
-    let number_gutter = 14.0 + pill_width + 12.0;
+    // The number badge is a cat: left pad (over the tail) + digit ink + gap +
+    // head + right pad. Widths come from the glyph ink, so a 1-digit badge is
+    // narrower than a 4-digit one; every badge is centred in one fixed slot.
+    let max_digits = rows.len().max(1).to_string();
+    let max_ink = font.text_ink(&max_digits, NUMBER_SIZE);
+    let slot_width = number_badge_width(max_ink.right - max_ink.left);
+    let number_gutter = 14.0 + slot_width + 12.0;
 
     let label_text_width = rows
         .iter()
@@ -212,10 +288,12 @@ pub fn layout(
     let col_gap = 12.0;
     let bar_w = (content_width - label_w - value_w - rme_w - col_gap * 3.0).max(120.0);
 
-    let legend_height = if options.legend.is_empty() {
-        0.0
+    // Legend: 8px below the header, one line of text, then 14px before the
+    // first card. Without a legend the first card keeps its usual gap.
+    let first_top = if options.legend.is_empty() {
+        20.0
     } else {
-        font.line_height_px(LEGEND_SIZE) + 12.0
+        font.line_height_px(LEGEND_SIZE) + 22.0
     };
 
     let mut tree: TaffyTree<TextSpec> = TaffyTree::new();
@@ -268,71 +346,113 @@ pub fn layout(
         ..Default::default()
     };
     let header = tree.new_with_children(header_style, &[title, subtitle])?;
+    tree.add_child(root, header)?;
 
-    let grid_style = Style {
-        display: Display::Grid,
-        grid_template_columns: vec![
-            length(label_w),
-            length(bar_w),
-            length(value_w),
-            length(rme_w),
-        ],
-        grid_auto_rows: vec![length(card_height)],
-        gap: Size {
-            width: length(col_gap),
-            height: length(options.row_gap),
-        },
-        // Absorb the free space a `min_height` creates: the footer stays pinned
-        // to the bottom and the rows stay top-aligned (centring looks worse).
-        flex_grow: 1.0,
-        align_content: AlignContent::START,
-        margin: taffy::geometry::Rect {
-            left: length(0.0),
-            right: length(0.0),
-            top: length(20.0 + legend_height),
-            bottom: length(0.0),
-        },
-        ..Default::default()
-    };
+    let mut cells_per_section: Vec<Vec<[NodeId; 4]>> = Vec::new();
+    let mut grids: Vec<NodeId> = Vec::new();
+    let mut title_nodes: Vec<Option<NodeId>> = Vec::new();
 
-    let mut cell_nodes: Vec<[NodeId; 4]> = Vec::with_capacity(rows.len());
-    let mut grid_children: Vec<NodeId> = Vec::with_capacity(rows.len() * 4);
-    for row in rows {
-        let label_spec = match row.note.as_deref() {
-            Some(note) => TextSpec {
-                lines: vec![
-                    (row.label.clone(), LABEL_SIZE),
-                    (note.to_owned(), NOTE_SIZE),
-                ],
-            },
-            None => TextSpec::line(row.label.clone(), LABEL_SIZE),
-        };
-        let label = tree.new_leaf_with_context(Style::default(), label_spec)?;
-        let bar = tree.new_leaf(Style::default())?;
-        let value = tree.new_leaf_with_context(
-            Style::default(),
-            TextSpec::line(
-                row.values
-                    .first()
-                    .map(|value| value.text.clone())
-                    .unwrap_or_default(),
-                if multi_series {
-                    SERIES_VALUE_SIZE
-                } else {
-                    VALUE_SIZE
+    for (section_index, (heading, row_indices)) in sections_of(rows).iter().enumerate() {
+        let first_section = section_index == 0;
+        if let Some(heading) = heading {
+            let node = tree.new_leaf_with_context(
+                Style {
+                    margin: taffy::geometry::Rect {
+                        left: length(14.0),
+                        right: length(0.0),
+                        top: length(if first_section { first_top } else { 18.0 }),
+                        bottom: length(0.0),
+                    },
+                    ..Default::default()
                 },
-            ),
-        )?;
-        let rme = tree.new_leaf_with_context(
-            Style::default(),
-            TextSpec::line(row.rme_text.clone().unwrap_or_default(), RME_SIZE),
-        )?;
-        for node in [label, bar, value, rme] {
-            grid_children.push(node);
+                TextSpec::line(heading.clone(), SECTION_SIZE),
+            )?;
+            tree.add_child(root, node)?;
+            title_nodes.push(Some(node));
+        } else {
+            title_nodes.push(None);
         }
-        cell_nodes.push([label, bar, value, rme]);
+
+        let mut grid_children: Vec<NodeId> = Vec::with_capacity(row_indices.len() * 4);
+        let mut cells: Vec<[NodeId; 4]> = Vec::with_capacity(row_indices.len());
+        for rows_index in row_indices {
+            let row = &rows[*rows_index];
+            let label_spec = match row.note.as_deref() {
+                Some(note) => TextSpec {
+                    lines: vec![
+                        (row.label.clone(), LABEL_SIZE),
+                        (note.to_owned(), NOTE_SIZE),
+                    ],
+                },
+                None => TextSpec::line(row.label.clone(), LABEL_SIZE),
+            };
+            let label = tree.new_leaf_with_context(Style::default(), label_spec)?;
+            let bar = tree.new_leaf(Style::default())?;
+            let value = tree.new_leaf_with_context(
+                Style::default(),
+                TextSpec::line(
+                    row.values
+                        .first()
+                        .map(|value| value.text.clone())
+                        .unwrap_or_default(),
+                    if multi_series {
+                        SERIES_VALUE_SIZE
+                    } else {
+                        VALUE_SIZE
+                    },
+                ),
+            )?;
+            let rme = tree.new_leaf_with_context(
+                Style::default(),
+                TextSpec::line(row.rme_text.clone().unwrap_or_default(), RME_SIZE),
+            )?;
+            for node in [label, bar, value, rme] {
+                grid_children.push(node);
+            }
+            cells.push([label, bar, value, rme]);
+        }
+
+        let grid_style = Style {
+            display: Display::Grid,
+            grid_template_columns: vec![
+                length(label_w),
+                length(bar_w),
+                length(value_w),
+                length(rme_w),
+            ],
+            grid_auto_rows: vec![length(card_height)],
+            gap: Size {
+                width: length(col_gap),
+                height: length(options.row_gap),
+            },
+            align_content: AlignContent::START,
+            margin: taffy::geometry::Rect {
+                left: length(0.0),
+                right: length(0.0),
+                top: length(if heading.is_some() {
+                    4.0
+                } else if first_section {
+                    first_top
+                } else {
+                    18.0
+                }),
+                bottom: length(0.0),
+            },
+            ..Default::default()
+        };
+        let grid = tree.new_with_children(grid_style, &grid_children)?;
+        tree.add_child(root, grid)?;
+        grids.push(grid);
+        cells_per_section.push(cells);
     }
-    let grid = tree.new_with_children(grid_style, &grid_children)?;
+
+    // Absorb the free space a `min_height` creates, keeping the footer pinned to
+    // the bottom while sections stay top-aligned.
+    let spacer = tree.new_leaf(Style {
+        flex_grow: 1.0,
+        ..Default::default()
+    })?;
+    tree.add_child(root, spacer)?;
 
     let footer_style = Style {
         margin: taffy::geometry::Rect {
@@ -347,9 +467,6 @@ pub fn layout(
         footer_style,
         TextSpec::line(options.footer.clone(), FOOTER_SIZE),
     )?;
-
-    tree.add_child(root, header)?;
-    tree.add_child(root, grid)?;
     tree.add_child(root, footer)?;
 
     let available = Size {
@@ -378,7 +495,6 @@ pub fn layout(
 
     let root_box = tree.layout(root)?;
     let header_box = tree.layout(header)?;
-    let grid_box = tree.layout(grid)?;
     let title_box = tree.layout(title)?;
     let subtitle_box = tree.layout(subtitle)?;
     let footer_box = tree.layout(footer)?;
@@ -399,8 +515,8 @@ pub fn layout(
         h: subtitle_box.size.height,
     };
 
-    // The legend is drawn by hand on a fixed baseline; the grid already
-    // reserved `legend_height` for it through its top margin.
+    // The legend is drawn by hand on a fixed baseline; the first section has
+    // already reserved `legend_height` for it through its top margin.
     let mut legend = Vec::with_capacity(options.legend.len());
     if !options.legend.is_empty() {
         let legend_y = header_box.location.y + header_box.size.height + 8.0;
@@ -425,108 +541,133 @@ pub fn layout(
         }
     }
 
-    let mut row_boxes = Vec::with_capacity(rows.len());
-    for (index, cells) in cell_nodes.iter().enumerate() {
-        let [label_node, bar_node, value_node, rme_node] = *cells;
-        let label_box = tree.layout(label_node)?;
-        let bar_box = tree.layout(bar_node)?;
-        let value_box = tree.layout(value_node)?;
-        let rme_box = tree.layout(rme_node)?;
-        let card_y = grid_box.location.y + label_box.location.y;
-        let card = Rect {
-            x: grid_box.location.x,
-            y: card_y,
-            w: grid_box.size.width,
-            h: label_box.size.height.max(card_height),
-        };
-        let track_full = Rect {
-            x: grid_box.location.x + bar_box.location.x,
-            y: card.y,
-            w: bar_box.size.width,
-            h: card.h,
-        };
+    let mut sections: Vec<SectionBox> = Vec::new();
+    let mut row_boxes: Vec<RowBox> = Vec::new();
 
-        let values = &rows[index].values;
-        let count = values.len().max(1);
-        let (bar_height, gap) = if count == 1 {
-            (10.0, 0.0)
-        } else {
-            (6.0, series_pitch - 6.0)
-        };
-        let content = count as f32 * bar_height + (count as f32 - 1.0) * gap;
-        let top = card.y + (card.h - content) / 2.0;
-        let mut bars = Vec::with_capacity(count);
-        for (series, value) in values.iter().enumerate() {
-            let y = top + series as f32 * (bar_height + gap);
-            let fraction = value.fraction.clamp(0.0, 1.0);
-            let track = Rect {
-                x: track_full.x,
-                y,
-                w: track_full.w,
-                h: bar_height,
-            };
-            bars.push(BarBox {
-                track,
-                fill: Rect {
-                    x: track.x,
-                    y,
-                    w: if fraction <= 0.0 {
-                        0.0
-                    } else {
-                        (track.w * fraction).clamp(4.0, track.w)
-                    },
-                    h: bar_height,
+    let grouped = sections_of(rows);
+    for (section_index, (heading, row_indices)) in grouped.iter().enumerate() {
+        if let (Some(title_node), Some(heading)) = (title_nodes[section_index], heading) {
+            let box_ = tree.layout(title_node)?;
+            sections.push(SectionBox {
+                title: heading.clone(),
+                rect: Rect {
+                    x: box_.location.x,
+                    y: box_.location.y,
+                    w: box_.size.width,
+                    h: box_.size.height,
                 },
             });
         }
-        if bars.is_empty() {
-            let y = card.y + (card.h - 10.0) / 2.0;
-            bars.push(BarBox {
-                track: Rect {
+
+        let grid_box = tree.layout(grids[section_index])?;
+        for (cell_index, cells) in cells_per_section[section_index].iter().enumerate() {
+            let [label_node, bar_node, value_node, rme_node] = *cells;
+            let label_box = tree.layout(label_node)?;
+            let bar_box = tree.layout(bar_node)?;
+            let value_box = tree.layout(value_node)?;
+            let rme_box = tree.layout(rme_node)?;
+            let card_y = grid_box.location.y + label_box.location.y;
+            let card = Rect {
+                x: grid_box.location.x,
+                y: card_y,
+                w: grid_box.size.width,
+                h: label_box.size.height.max(card_height),
+            };
+            let track_full = Rect {
+                x: grid_box.location.x + bar_box.location.x,
+                y: card.y,
+                w: bar_box.size.width,
+                h: card.h,
+            };
+
+            let rows_index = row_indices[cell_index];
+            let values = &rows[rows_index].values;
+            let count = values.len().max(1);
+            let (bar_height, gap) = if count == 1 {
+                (10.0, 0.0)
+            } else {
+                (6.0, series_pitch - 6.0)
+            };
+            let content = count as f32 * bar_height + (count as f32 - 1.0) * gap;
+            let top = card.y + (card.h - content) / 2.0;
+            let mut bars = Vec::with_capacity(count);
+            for (series, value) in values.iter().enumerate() {
+                let y = top + series as f32 * (bar_height + gap);
+                let fraction = value.fraction.clamp(0.0, 1.0);
+                let track = Rect {
                     x: track_full.x,
                     y,
                     w: track_full.w,
-                    h: 10.0,
+                    h: bar_height,
+                };
+                bars.push(BarBox {
+                    track,
+                    fill: Rect {
+                        x: track.x,
+                        y,
+                        w: if fraction <= 0.0 {
+                            0.0
+                        } else {
+                            (track.w * fraction).clamp(4.0, track.w)
+                        },
+                        h: bar_height,
+                    },
+                });
+            }
+            if bars.is_empty() {
+                let y = card.y + (card.h - 10.0) / 2.0;
+                bars.push(BarBox {
+                    track: Rect {
+                        x: track_full.x,
+                        y,
+                        w: track_full.w,
+                        h: 10.0,
+                    },
+                    fill: Rect {
+                        x: track_full.x,
+                        y,
+                        w: 4.0,
+                        h: 10.0,
+                    },
+                });
+            }
+
+            let ordinal = row_boxes.len() + 1;
+            let badge = badge_geometry(card, slot_width, ordinal, font);
+            row_boxes.push(RowBox {
+                card,
+                number_pill: Rect {
+                    x: badge.x,
+                    y: badge.y,
+                    w: badge.w,
+                    h: badge.h,
                 },
-                fill: Rect {
-                    x: track_full.x,
-                    y,
-                    w: 4.0,
-                    h: 10.0,
+                number_center: (
+                    number_ink_center_x(badge.x, badge.ink_width),
+                    badge.y + NUMBER_BADGE_BODY_CENTER,
+                ),
+                label: Rect {
+                    x: grid_box.location.x + label_box.location.x + number_gutter,
+                    y: card_y,
+                    w: label_box.size.width - number_gutter,
+                    h: card.h,
                 },
+                bars,
+                value: Rect {
+                    x: grid_box.location.x + value_box.location.x,
+                    y: card_y,
+                    w: value_box.size.width,
+                    h: card.h,
+                },
+                rme: Rect {
+                    x: grid_box.location.x + rme_box.location.x,
+                    y: card_y,
+                    w: rme_box.size.width,
+                    h: card.h,
+                },
+                row: rows[rows_index].clone(),
             });
         }
-
-        row_boxes.push(RowBox {
-            card,
-            number_pill: Rect {
-                x: card.x + 14.0,
-                y: card.y + (card.h - 18.0) / 2.0,
-                w: pill_width,
-                h: 18.0,
-            },
-            number_center: (card.x + 14.0 + pill_width / 2.0, card.y + card.h / 2.0),
-            label: Rect {
-                x: grid_box.location.x + label_box.location.x + number_gutter,
-                y: card_y,
-                w: label_box.size.width - number_gutter,
-                h: card.h,
-            },
-            bars,
-            value: Rect {
-                x: grid_box.location.x + value_box.location.x,
-                y: card_y,
-                w: value_box.size.width,
-                h: card.h,
-            },
-            rme: Rect {
-                x: grid_box.location.x + rme_box.location.x,
-                y: card_y,
-                w: rme_box.size.width,
-                h: card.h,
-            },
-            row: rows[index].clone(),
-        });
     }
 
     Ok(LayoutPlan {
@@ -536,6 +677,7 @@ pub fn layout(
         title: title_rect,
         subtitle: subtitle_rect,
         legend,
+        sections,
         rows: row_boxes,
         footer: Rect {
             x: footer_box.location.x,
@@ -546,4 +688,81 @@ pub fn layout(
         card_height,
         multi_series,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn font() -> Option<Font> {
+        let path = Path::new("fonts/mplus-rounded.ttf");
+        if !path.is_file() {
+            return None;
+        }
+        Some(Font::load(path).expect("font"))
+    }
+
+    fn row(label: &str, group: Option<&str>) -> RowPlan {
+        RowPlan {
+            label: label.to_owned(),
+            note: Some("note".to_owned()),
+            group: group.map(str::to_owned),
+            values: vec![SeriesValue {
+                text: "2.10 GiB/s".to_owned(),
+                fraction: 1.0,
+            }],
+            rme_text: Some("±1.20%".to_owned()),
+            tooltip: String::new(),
+        }
+    }
+
+    fn options() -> LayoutOptions {
+        LayoutOptions {
+            width: 920.0,
+            min_height: 0.0,
+            card_height: 38.0,
+            row_gap: 10.0,
+            padding: 22.0,
+            title: "blit benchmarks".to_owned(),
+            subtitle: "Windows · Dart 3.13.5".to_owned(),
+            footer: "generated".to_owned(),
+            legend: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn lays_out_rows_below_the_header() {
+        let Some(font) = font() else { return };
+        let plan = layout(&font, &[row("Sequential read", None)], &options()).expect("layout");
+        assert_eq!(plan.width, 920.0);
+        assert!(plan.rows[0].card.y > plan.title.y);
+        assert!(plan.rows[0].bar_track_w() > 0.0);
+        assert!(plan.rows[0].value.x > plan.rows[0].card.x);
+        assert!(plan.height > 100.0);
+        assert!(plan.sections.is_empty());
+    }
+
+    #[test]
+    fn groups_become_sections_in_first_seen_order() {
+        let Some(font) = font() else { return };
+        let rows = vec![
+            row("read", Some("I/O")),
+            row("write", Some("I/O")),
+            row("parse", Some("CPU")),
+        ];
+        let plan = layout(&font, &rows, &options()).expect("layout");
+        assert_eq!(plan.sections.len(), 2);
+        assert_eq!(plan.sections[0].title, "I/O");
+        assert_eq!(plan.sections[1].title, "CPU");
+        assert!(plan.sections[0].rect.y < plan.rows[0].card.y);
+        assert!(plan.rows[1].card.y > plan.rows[0].card.y);
+        assert!(plan.rows[2].card.y > plan.rows[1].card.y);
+    }
+
+    impl RowBox {
+        fn bar_track_w(&self) -> f32 {
+            self.bars.first().map(|bar| bar.track.w).unwrap_or(0.0)
+        }
+    }
 }

@@ -39,6 +39,9 @@ pub struct RowRule {
     /// Arithmetic expression over `value` and `$1`…, e.g. `"value * $1 * 32"`.
     #[serde(default)]
     pub value: Option<String>,
+    /// Section the row belongs to; rows with the same group share a heading.
+    #[serde(default)]
+    pub group: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -101,7 +104,7 @@ impl Default for Render {
             footer: None,
             width: 920.0,
             min_height: 0.0,
-            card_height: 38.0,
+            card_height: 42.0,
             row_gap: 10.0,
             padding: 22.0,
             theme: "pastel".to_owned(),

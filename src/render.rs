@@ -142,6 +142,9 @@ struct Slot {
     direction: Direction,
 }
 
+/// Label, note and section for a row, as first seen across sources.
+type RowMeta = (Option<String>, Option<String>, Option<String>);
+
 /// Union of benchmark ids across sources, in first-seen order, with one slot
 /// per source. Missing rows stay `None` so they render as an empty track.
 fn merge_rows(
@@ -152,7 +155,7 @@ fn merge_rows(
     let rules = &config.rows;
     let mut order: Vec<String> = Vec::new();
     let mut slots: HashMap<String, Vec<Option<Slot>>> = HashMap::new();
-    let mut labels: HashMap<String, (Option<String>, Option<String>)> = HashMap::new();
+    let mut labels: HashMap<String, RowMeta> = HashMap::new();
     let mut keys: HashMap<String, usize> = HashMap::new();
 
     for (index, source) in series.iter().enumerate() {
@@ -177,7 +180,9 @@ fn merge_rows(
                 Some(text) => Some(text),
                 None => benchmark.note.clone().or_else(|| params_note(benchmark)),
             };
-            labels.entry(benchmark.id.clone()).or_insert((label, note));
+            labels
+                .entry(benchmark.id.clone())
+                .or_insert((label, note, mapped.group.clone()));
         }
     }
 
@@ -235,7 +240,7 @@ fn merge_rows(
                 },
             })
             .collect();
-        let (label, note) = labels.remove(&id).unwrap_or((None, None));
+        let (label, note, group) = labels.remove(&id).unwrap_or((None, None, None));
         let tooltip = {
             let mut parts = vec![label.clone().unwrap_or_else(|| id.clone())];
             for (index, slot) in entries.iter().enumerate() {
@@ -254,6 +259,7 @@ fn merge_rows(
             RowPlan {
                 label: label.unwrap_or_else(|| id.clone()),
                 note,
+                group,
                 values,
                 rme_text: if multi_series {
                     None
@@ -295,6 +301,7 @@ fn map_benchmark(benchmark: &Benchmark, rules: &[RowRule]) -> Result<(Mapped, us
             note: benchmark.note.clone(),
             unit: benchmark.unit.clone(),
             value: benchmark.value,
+            group: benchmark.group.clone(),
         },
         rules.len(),
     ))

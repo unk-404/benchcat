@@ -199,6 +199,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         with_png,
     )?;
 
+    // 13 · group fields become section headings.
+    let sections = load("examples/sections.json")?;
+    let mut config = Config::default();
+    config.render.title = Some("sections from the input".to_owned());
+    config.render.subtitle = Some("{tool} · {rows} rows in three groups".to_owned());
+    emit(
+        &font,
+        "13-sections",
+        &config,
+        &sections.meta,
+        &[("", None, &sections.benchmarks)],
+        with_png,
+    )?;
+
     Ok(())
 }
 

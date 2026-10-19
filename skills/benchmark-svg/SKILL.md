@@ -110,7 +110,7 @@ subtitle = "{platform|local} · {tool} {tool_version} · commit {commit}"
 footer = "Generated from {rows} rows"
 width = 920.0
 min_height = 0.0                # footer stays pinned to the bottom
-card_height = 38.0
+card_height = 42.0
 row_gap = 10.0
 padding = 22.0
 theme = "pastel"                # "pastel" | "dark"
@@ -141,6 +141,7 @@ label = "Pool read · $1 workers"
 note = "4 KiB · batch 32"
 value = "value * $1 * 32"       # arithmetic over value and $1...
 unit = "IOPS"
+group = "Thread pool"           # section heading
 ```
 
 Row semantics:
@@ -150,6 +151,8 @@ Row semantics:
 - `note = ""` clears the note; omitted keeps the input's note or the `params` summary.
 - `value` grammar: numbers, `value`, `$1`…, `+ - * /`, parentheses, `min`, `max`, `abs`, `log10`,
   `sqrt`, `round`. No I/O, no property access, no eval. Results are formatted with `unit`.
+- `group` (rule override or the input's `group` field) draws a section heading. Rows sharing a group
+  are drawn together in first-seen group order; rows without a group form one untitled block.
 - Unmatched rows are appended after matched ones unless `only_matched = true`.
 
 Placeholders available in `title`, `subtitle`, `footer`:
