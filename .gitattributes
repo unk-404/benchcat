@@ -1,0 +1,8 @@
+# The SVG output is part of the contract: checkouts must keep LF endings or the
+# rendered bytes differ from the committed ones on Windows runners.
+* text=auto eol=lf
+
+*.ttf binary
+*.otf binary
+*.png binary
+*.woff2 binary
