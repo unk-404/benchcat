@@ -104,6 +104,9 @@ pub fn load(paths: &[PathBuf], format: Format) -> Result<Loaded, InputError> {
         }
         let before = files.len();
         collect_files(path, &mut files)?;
+        // Directory order is filesystem-dependent; sort so every platform reads
+        // the same sequence.
+        files[before..].sort();
         if files.len() == before && path.is_dir() {
             return Err(InputError::Empty(path.display().to_string()));
         }
