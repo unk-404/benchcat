@@ -47,11 +47,15 @@ rayon is used only where work is independent and the original order can be resto
 - long JSONL / benchmark_test files (>= 2000 lines) parse line blocks in parallel, then flatten in
   block order; line numbers in errors are preserved;
 - several input files (>= 2 files, >= 128 KiB) parse in parallel; the merge keeps argv order;
-- glyph outlines use `extract_paths` above 96 unique glyphs.
+- glyph outlines use `extract_paths` above 96 unique glyphs;
+- rows of a card (>= 256 rows) are emitted in four fixed chunks: each chunk builds its own buffer and
+  the buffers are concatenated in order, so the bytes are identical to the sequential pass. Four is
+  the CI runner core count; more chunks regress on large machines. Chunk buffers add roughly one SVG
+  of peak memory, so very large cards trade memory for time.
 
-Row emission stays sequential: it is memory-bound and shares the font caches; a parallel prototype
-(`par_chunks` over rows) was slower above two threads. The font caches are `RwLock`, so parallel
-readers do not serialise.
+The font caches are `DashMap` with the identity hasher, so parallel readers only contend per shard.
+Before that change a parallel emission prototype was slower above two threads; do not go back to a
+global `RwLock` around those caches.
 
 ## Verify
 

@@ -1,5 +1,7 @@
 //! Card emission: rows, bars, values, legend and decorations.
 
+use rayon::prelude::*;
+
 use crate::font::Font;
 use crate::layout::{
     FOOTER_SIZE, LABEL_SIZE, LEGEND_SIZE, LayoutPlan, NOTE_SIZE, NUMBER_SIZE, RME_SIZE, RowBox,
@@ -178,10 +180,38 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
         );
     }
 
-    // Emission is memory-bound and shares the font caches, so it stays
-    // sequential; rayon is used while loading and extracting outlines.
-    for (index, row) in plan.rows.iter().enumerate() {
-        emit_row(&mut out, plan, row, index, font, &atlas, theme, &numbers);
+    // Rows are independent; the chunk buffers are concatenated in order, so the
+    // output is identical to the sequential pass.
+    if plan.rows.len() >= PARALLEL_ROWS {
+        let chunk_size = plan.rows.len().div_ceil(ROW_CHUNKS);
+        let chunks: Vec<String> = plan
+            .rows
+            .par_chunks(chunk_size)
+            .enumerate()
+            .map(|(chunk, rows)| {
+                let mut out = Writer::with_capacity(rows.len() * 3_000 + 1_024);
+                for (offset, row) in rows.iter().enumerate() {
+                    emit_row(
+                        &mut out,
+                        plan,
+                        row,
+                        chunk * chunk_size + offset,
+                        font,
+                        &atlas,
+                        theme,
+                        &numbers,
+                    );
+                }
+                out.finish()
+            })
+            .collect();
+        for chunk in chunks {
+            out.raw(&chunk);
+        }
+    } else {
+        for (index, row) in plan.rows.iter().enumerate() {
+            emit_row(&mut out, plan, row, index, font, &atlas, theme, &numbers);
+        }
     }
 
     let footer_baseline = plan.footer.y + font.ascent_px(FOOTER_SIZE);
@@ -221,6 +251,11 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
         warnings,
     }
 }
+
+const PARALLEL_ROWS: usize = 256;
+/// Fixed chunk count: four workers is what CI runners have, and more chunks
+/// only add contention on large machines.
+const ROW_CHUNKS: usize = 4;
 
 /// One card: tooltip, cat badge, label, bars, values.
 #[allow(clippy::too_many_arguments)]
