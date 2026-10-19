@@ -125,12 +125,21 @@ jobs:
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Never merge here: a plain `git pull` would add
+          # "Merge branch 'master' of ..." commits to the repository.
+          git config pull.rebase true
+          git config merge.ff only
           git add assets/examples assets/fonts
           git commit -m "chore(assets): regenerate gallery and type specimens for ${GITHUB_SHA::7} [skip ci]"
           for attempt in 1 2 3; do
-            git pull --rebase --autostash && git push && break
+            if git pull --rebase --autostash && git push; then
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
             sleep $((attempt * 3))
           done
+          echo "::error::could not push the regenerated assets"
+          exit 1
 
       - uses: actions/upload-artifact@v7
         with:
