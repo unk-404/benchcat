@@ -8,8 +8,8 @@ branding:
 
 inputs:
   input:
-    description: Files or directories to render, separated by spaces or newlines
-    required: true
+    description: Files or directories to render, separated by spaces or newlines (omit when the config defines [[series]])
+    required: false
   format:
     description: auto, json, jsonl, csv, benchmark_test, criterion, hyperfine
     default: auto

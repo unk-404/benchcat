@@ -23,7 +23,7 @@ jobs:
           dart test benchmark/io_benchmark.dart --reporter expanded > bench.txt
           grep '^{' bench.txt > bench.jsonl
 
-      - uses: unk-404/benchmark_svg@v1
+      - uses: unk-404/benchmark_svg@master
         with:
           input: bench.jsonl
           format: benchmark_test

@@ -21,9 +21,9 @@ Renders benchmark output as one deterministic SVG card, inside your CI.
     out: assets/benchmarks.svg
 ```
 
-That is the whole integration. The action writes the SVG where `out` points and exposes `svg` and
-`bytes` outputs. It reads the checked-out workspace, so run `actions/checkout` first; `input` and `out`
-are relative to the repository root.
+That is the whole integration. The action writes the SVG where `out` points (parent directories are
+created) and exposes `svg` and `bytes` outputs. It reads the checked-out workspace, so run
+`actions/checkout` first; `input` and `out` are relative to the repository root.
 
 ## Do not
 
@@ -82,7 +82,7 @@ For pull requests, skip the commit and upload `out` as an artifact instead.
 
 | input | default | meaning |
 |---|---|---|
-| `input` | — | files or directories, space/newline separated (required) |
+| `input` | — | files or directories, space/newline separated; optional when the config defines `[[series]]` |
 | `format` | `auto` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
 | `config` | — | `bench-svg.toml`; auto-discovered when omitted |
 | `out` | `assets/benchmarks.svg` | output path |
@@ -111,6 +111,9 @@ The action needs no token and no write permission.
 | anything else | canonical JSON / CSV you emit | `json` / `jsonl` / `csv` |
 | unknown | — | `auto` |
 
+Directory inputs are read recursively in sorted order. `format` also accepts the aliases `ndjson`,
+`dart`, `canonical` and `cargo-criterion`.
+
 Canonical shape (`bench-svg/report@1`):
 
 ```jsonc
@@ -125,14 +128,26 @@ Canonical shape (`bench-svg/report@1`):
     "group": "File I/O",         // section heading
     "label": "Sequential read",  // display; defaults to id
     "note": "8 MiB blocks",      // second line
-    "unit": "B/s",               // required
+    "unit": "B/s",               // optional, default "ops/s"
     "value": 2254857830.0,       // required, in `unit`
-    "direction": "higher",       // or "lower"
-    "params": { "block": "8MiB" },
-    "stats": { "rme_pct": 1.21, "samples": 5 }
+    "direction": "higher",       // "higher" (default) or "lower"
+    "params": { "block": "8MiB" },   // becomes the note when `note` is absent
+    "stats": { "rme_pct": 1.21 }     // fills the right-hand ± column
   }]
 }
 ```
+
+`params` renders as the second line when `note` is absent (`key value · key value`, sorted by key); an
+explicit `note` wins. `stats.rme_pct` also accepts `relativeMarginOfError`, `relative_margin_of_error`
+and `rme`. `direction` accepts `higher-is-better`/`max` and `lower-is-better`/`min` as aliases.
+
+`format: json` accepts the report object above, a bare array of records, or one record; JSONL is one
+record per line, and lines that do not start with `{` are skipped (benchmark_test interleaves progress
+output). CSV is header-driven: `value` (`value`, `ops`, `throughput`, `mean`) is required, `id` (`id`,
+`name`, `benchmark`) falls back to `label` and then `row-N`; optional columns are `label`/`display`,
+`note`/`notes`/`detail`, `group`/`section`, `unit`/`units` (default `ops/s`) and
+`rme_pct`/`rme`/`rme%`/`margin`. CSV rows are always higher-is-better — use canonical JSON for
+lower-is-better metrics.
 
 Units are dimensional: `B/s`…`TiB/s`, `ops/s`/`IOPS`, `ns/op`…`s/op`, `instr`, `×`; unknown spellings
 render verbatim. `direction: "lower"` inverts the bar so longer always means better.
@@ -172,7 +187,8 @@ format = "jsonl"       # optional per-source format override
 - Bar thickness is 6 px inside a comparison card (even for a lone bar) and 10 px in a single-source
   card.
 
-Rows are the union of ids across sources.
+Rows are the union of ids across sources. When the config defines `[[series]]`, positional `input` is
+ignored, so the action can omit it.
 
 ## Config (`bench-svg.toml`)
 
@@ -228,14 +244,16 @@ unmatched rows append unless `only_matched = true`.
 | `missing` | `"skip"` | comparison cards only |
 
 `[font] family` selects a file stem in `./fonts`; without it, `mplus-rounded` is preferred and only then
-the first font on disk.
+the first font on disk. `BENCH_SVG_FONT_DIR` adds a directory searched before `./fonts`.
 
 Each `[render]` key can be overridden from the environment: `BENCH_SVG_RENDER__TITLE`,
 `BENCH_SVG_RENDER__WIDTH`, `BENCH_SVG_FONT__FAMILY` (double underscore nests).
 
-Placeholders: `{commit}`, `{commit:full}`, `{branch}`, `{tool}`, `{tool_version}`, `{platform}`,
-`{os}`, `{os_version}`, `{arch}`, `{cpu}`, `{cores}`, `{ram_gib}`, `{runner}`, `{rows}`, `{font}`.
-`{key|fallback}` supplies a fallback; `{{` is a literal `{`.
+Placeholders: `{commit}`, `{commit:short}`, `{commit:full}`, `{branch}`, `{tool}`, `{tool:full}`,
+`{tool_version}` (alias `{version}`), `{platform}`, `{os}`, `{os_version}`, `{arch}`, `{cpu}`,
+`{cores}`, `{ram_gib}`, `{runner}`, `{rows}`, `{font}`. `{key|fallback}` supplies a fallback; `{{` is a
+literal `{`. Inside GitHub Actions, a missing commit, OS or arch falls back to `GITHUB_SHA`, `RUNNER_OS`
+and `RUNNER_ARCH`.
 
 ## Verify
 
@@ -253,8 +271,11 @@ no-op unless something actually changed.
 | Symptom | Fix |
 |---|---|
 | `no benchmark records found` | wrong `format`; criterion needs the directory, not `estimates.json` |
+| `input path does not exist` | `input` is workspace-relative; the action must run after `actions/checkout` |
+| `unknown format` | use one of the names in the format table (aliases such as `ndjson`, `dart` work) |
 | `no font configured` | pass `font_file`, or put a TTF in `./fonts` |
-| rows missing | `max_rows`, `only_matched`, or duplicate ids |
+| rows missing | `max_rows`, `only_matched`, duplicate ids, or positional input ignored because the config has `[[series]]` |
+| unknown theme | `theme` must be `pastel` or `dark` |
 | bytes differ between machines | CRLF checkout or an edited font; keep LF |
 | action cannot download | no release yet / blocked network → `tool_path` or `BENCH_SVG_RELEASE_BASE` |
 
@@ -269,14 +290,14 @@ OFL catalogue under `fonts/`, each with a type specimen in `assets/fonts/`.
 cargo install --git https://github.com/unk-404/benchmark_svg --branch master
 bench-svg formats
 bench-svg render target/criterion -o /tmp/bench.svg --format criterion
-bench-svg render a.jsonl b.jsonl \
-  --series "Linux=a.jsonl" --series "Windows=b.jsonl" \
-  --config bench-svg.toml --font quicksand --stdout
+bench-svg render --config bench-svg.toml --stdout  # [[series]] come from the config
+bench-svg render -o - examples/bench.jsonl        # "-" prints only to stdout
 ```
 
-`--series LABEL=PATH` adds a comparison source, `--stdout` writes the SVG to stdout, and `--font` /
-`--font-file` override `[font]`. Reproduce a CI failure or check a config before committing; CI itself
-uses the action step.
+`--series LABEL=PATH` adds a comparison source; when any series exists (config or flag), positional
+paths are ignored, so use one form or the other. `--stdout` writes the SVG to stdout in addition to
+`--out`, `-o -` prints only, and `--font` / `--font-file` override `[font]`. Reproduce a CI failure or
+check a config before committing; CI itself uses the action step.
 
 ## What it does not do
 

@@ -241,7 +241,7 @@ The action installs the right binary (cached, checksum-verified) and runs one re
 git, tokens or pull requests.
 
 ```yaml
-- uses: unk-404/benchmark_svg@v1
+- uses: unk-404/benchmark_svg@master
   id: bench
   with:
     input: target/criterion

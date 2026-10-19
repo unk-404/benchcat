@@ -25,7 +25,7 @@ jobs:
         run: cargo bench --all-features -- --save-baseline main
 
       # `target/criterion` is ingested as-is; no JSON conversion step.
-      - uses: unk-404/benchmark_svg@v1
+      - uses: unk-404/benchmark_svg@master
         id: bench
         with:
           input: target/criterion

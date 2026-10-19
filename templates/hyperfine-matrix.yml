@@ -43,7 +43,7 @@ jobs:
           merge-multiple: true
 
       # One row per command, one bar per platform: the comparison layout.
-      - uses: unk-404/benchmark_svg@v1
+      - uses: unk-404/benchmark_svg@master
         with:
           input: bench-ubuntu-24.04.json bench-macos-14.json
           format: hyperfine

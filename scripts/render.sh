@@ -4,24 +4,27 @@
 set -euo pipefail
 
 log() { printf '[bench-svg] %s\n' "$*"; }
-fail() {
-  printf '[bench-svg] error: %s\n' "$*" >&2
-  exit 2
-}
 
 input="${INPUT_INPUT:-}"
-[[ -n "$input" ]] || fail "input is empty"
 
 paths=()
-while IFS= read -r path; do
-  [[ -n "$path" ]] && paths+=("$path")
-done < <(printf '%s\n' "$input" | tr ' ' '\n')
+if [[ -n "$input" ]]; then
+  while IFS= read -r path; do
+    [[ -n "$path" ]] && paths+=("$path")
+  done < <(printf '%s\n' "$input" | tr ' ' '\n')
+fi
 
-[[ ${#paths[@]} -gt 0 ]] || fail "input is empty"
-
+# No positional paths is fine when bench-svg.toml defines [[series]]; when
+# neither is present the CLI reports the precise error.
 out="${INPUT_OUT:-assets/benchmarks.svg}"
 format="${INPUT_FORMAT:-auto}"
-args=(render "${paths[@]}" --out "$out" --format "$format")
+args=(render)
+# Guard the expansion: bash 3.2 (macOS /bin/bash) treats "${arr[@]}" on an
+# empty array as unbound under `set -u`.
+if [[ ${#paths[@]} -gt 0 ]]; then
+  args+=("${paths[@]}")
+fi
+args+=(--out "$out" --format "$format")
 
 if [[ -n "${INPUT_CONFIG:-}" ]]; then args+=(--config "$INPUT_CONFIG"); fi
 if [[ -n "${INPUT_FONT:-}" ]]; then args+=(--font "$INPUT_FONT"); fi
