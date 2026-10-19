@@ -71,7 +71,7 @@ pub fn apply(rule: &RowRule, benchmark: &Benchmark, captures: &[String]) -> Resu
         note,
         unit: rule.unit.clone().unwrap_or_else(|| benchmark.unit.clone()),
         value,
-        group: rule.group.clone(),
+        group: rule.group.clone().or_else(|| benchmark.group.clone()),
     })
 }
 
@@ -185,6 +185,28 @@ mod tests {
         assert!(match_rule(&rule, &no).unwrap().is_none());
         let mapped = apply(&rule, &yes, &[]).unwrap();
         assert_eq!(mapped.group.as_deref(), Some("File I/O"));
+    }
+
+    #[test]
+    fn rule_without_group_keeps_the_input_group() {
+        let mut bench = benchmark("x", 1.0, "ops/s");
+        bench.group = Some("From input".to_owned());
+        let rule = RowRule {
+            id: Some("x".to_owned()),
+            pattern: None,
+            label: Some("renamed".to_owned()),
+            note: None,
+            unit: None,
+            value: None,
+            group: None,
+        };
+        let mapped = apply(&rule, &bench, &[]).unwrap();
+        assert_eq!(mapped.group.as_deref(), Some("From input"));
+
+        let mut override_rule = rule;
+        override_rule.group = Some("From rule".to_owned());
+        let mapped = apply(&override_rule, &bench, &[]).unwrap();
+        assert_eq!(mapped.group.as_deref(), Some("From rule"));
     }
 
     #[test]
