@@ -25,13 +25,13 @@ jobs:
         run: cargo bench --all-features -- --save-baseline main
 
       # `target/criterion` is ingested as-is; no JSON conversion step.
-      - uses: unk-404/benchmark_svg@master
+      - uses: unk-404/benchcat@master
         id: bench
         with:
           input: target/criterion
           format: criterion
           out: assets/benchmarks.svg
-          config: bench-svg.toml
+          config: benchcat.toml
 
       # Deterministic output means an unchanged benchmark produces no diff.
       - name: Commit when the chart changed

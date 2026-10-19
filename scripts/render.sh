@@ -3,7 +3,7 @@
 # values never reach a shell through string interpolation.
 set -euo pipefail
 
-log() { printf '[bench-svg] %s\n' "$*"; }
+log() { printf '[benchcat] %s\n' "$*"; }
 
 input="${INPUT_INPUT:-}"
 
@@ -14,7 +14,7 @@ if [[ -n "$input" ]]; then
   done < <(printf '%s\n' "$input" | tr ' ' '\n')
 fi
 
-# No positional paths is fine when bench-svg.toml defines [[series]]; when
+# No positional paths is fine when benchcat.toml defines [[series]]; when
 # neither is present the CLI reports the precise error.
 out="${INPUT_OUT:-assets/benchmarks.svg}"
 format="${INPUT_FORMAT:-auto}"
@@ -30,7 +30,7 @@ if [[ -n "${INPUT_CONFIG:-}" ]]; then args+=(--config "$INPUT_CONFIG"); fi
 if [[ -n "${INPUT_FONT:-}" ]]; then args+=(--font "$INPUT_FONT"); fi
 if [[ -n "${INPUT_FONT_FILE:-}" ]]; then args+=(--font-file "$INPUT_FONT_FILE"); fi
 
-bench-svg "${args[@]}"
+benchcat "${args[@]}"
 
 bytes=$(wc -c <"$out" | tr -d ' ')
 log "wrote $out ($bytes bytes)"
@@ -44,7 +44,7 @@ fi
 
 if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
   {
-    echo "### bench-svg"
+    echo "### benchcat"
     echo
     echo "Wrote \`$out\` ($bytes bytes)."
     echo

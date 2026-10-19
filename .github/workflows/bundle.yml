@@ -13,7 +13,9 @@ name: bundle
 #
 # After a release, a `consumer` job uses the action by reference (not `uses: ./`)
 # and installs the freshly published binary, which is the only way to exercise
-# the composite-action download path.
+# the composite-action download path. A `self-benchmark` job then times this
+# release against the previous one and attaches the comparison card to the
+# release; it only reports, so noise cannot fail a published release.
 #
 # Mixed changes run the union (full implies assets and action). Anything the
 # classifier does not recognise falls back to `full`, so a new top-level file
@@ -162,7 +164,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: success()
         with:
-          # `card-` keeps these apart from the `bench-svg-<target>` release
+          # `card-` keeps these apart from the `benchcat-<target>` release
           # artifacts that other jobs may be uploading at the same time.
           name: card-${{ matrix.os }}
           path: target/bench.svg
@@ -293,14 +295,14 @@ jobs:
 
       - run: cargo build --locked
 
-      - name: bench-svg action
+      - name: benchcat action
         id: bench
         uses: ./
         with:
           input: examples/bench.jsonl
           format: benchmark_test
           out: target/action.svg
-          tool_path: target/debug/bench-svg${{ runner.os == 'Windows' && '.exe' || '' }}
+          tool_path: target/debug/benchcat${{ runner.os == 'Windows' && '.exe' || '' }}
           version: auto
 
       - name: Check the output
@@ -329,7 +331,7 @@ jobs:
           export INPUT_VERSION=latest
           export RUNNER_TOOL_CACHE="$RUNNER_TEMP/installer-check"
           bash scripts/install.sh
-          bin="$RUNNER_TOOL_CACHE/bench-svg/latest-x86_64-unknown-linux-musl/bench-svg"
+          bin="$RUNNER_TOOL_CACHE/benchcat/latest-x86_64-unknown-linux-musl/benchcat"
           "$bin" --version
 
   build:
@@ -396,8 +398,8 @@ jobs:
           set -euo pipefail
           ext=""
           case "${{ matrix.target }}" in *windows*) ext=".exe" ;; esac
-          archive="bench-svg-${{ matrix.target }}.tar.gz"
-          tar -czf "$archive" -C "target/${{ matrix.target }}/release" "bench-svg${ext}"
+          archive="benchcat-${{ matrix.target }}.tar.gz"
+          tar -czf "$archive" -C "target/${{ matrix.target }}/release" "benchcat${ext}"
           if command -v sha256sum >/dev/null 2>&1; then
             sha256sum "$archive" > "$archive.sha256"
           else
@@ -408,20 +410,22 @@ jobs:
       - name: Attest
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: "bench-svg-*.tar.gz"
+          subject-path: "benchcat-*.tar.gz"
 
       - uses: actions/upload-artifact@v7
         with:
-          name: bench-svg-${{ matrix.target }}
+          name: benchcat-${{ matrix.target }}
           path: |
-            bench-svg-*.tar.gz
-            bench-svg-*.tar.gz.sha256
+            benchcat-*.tar.gz
+            benchcat-*.tar.gz.sha256
           if-no-files-found: error
 
   publish:
     name: publish
     needs: [changes, build, assets]
     if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
     timeout-minutes: 30
     permissions:
       contents: write
@@ -431,7 +435,7 @@ jobs:
 
       - uses: actions/download-artifact@v8
         with:
-          pattern: bench-svg-*
+          pattern: benchcat-*
           path: dist
           merge-multiple: true
 
@@ -444,7 +448,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf dist/bench-svg-assets.tar.gz -C . assets/examples assets/fonts
+          tar -czf dist/benchcat-assets.tar.gz -C . assets/examples assets/fonts
           cd dist
           sha256sum *.tar.gz > SHA256SUMS
           sha256sum -c SHA256SUMS
@@ -458,17 +462,19 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p /tmp/dist-check
-          tar -xzf dist/bench-svg-x86_64-unknown-linux-musl.tar.gz -C /tmp/dist-check
-          /tmp/dist-check/bench-svg --version
+          tar -xzf dist/benchcat-x86_64-unknown-linux-musl.tar.gz -C /tmp/dist-check
+          /tmp/dist-check/benchcat --version
 
       # Date + commit, never a semantic version: `v2026.10.19-cd5cd87`.
       - name: Publish
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
           if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             echo "release $tag already exists for this commit"
             exit 0
@@ -476,7 +482,7 @@ jobs:
           gh release create "$tag" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "bench-svg $tag" \
+            --title "benchcat $tag" \
             --generate-notes \
             dist/*.tar.gz dist/*.sha256 dist/SHA256SUMS
           echo "::notice::released $tag"
@@ -491,14 +497,14 @@ jobs:
           set -euo pipefail
           tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
           export INPUT_VERSION="$tag"
-          export RUNNER_TOOL_CACHE="$RUNNER_TEMP/bench-svg-smoke"
+          export RUNNER_TOOL_CACHE="$RUNNER_TEMP/benchcat-smoke"
           installed=false
           for attempt in 1 2 3 4 5; do
             if bash scripts/install.sh; then installed=true; break; fi
             sleep $((attempt * 5))
           done
           [[ "$installed" == true ]] || { echo "::error::installer did not succeed"; exit 1; }
-          bin="$RUNNER_TOOL_CACHE/bench-svg/$tag-x86_64-unknown-linux-musl/bench-svg"
+          bin="$RUNNER_TOOL_CACHE/benchcat/$tag-x86_64-unknown-linux-musl/benchcat"
           "$bin" --version
           "$bin" render examples/bench.jsonl -o target/smoke.svg
           test -s target/smoke.svg
@@ -525,10 +531,12 @@ jobs:
 
       - name: Wait for the release asset
         shell: bash
+        env:
+          TAG: ${{ needs.publish.outputs.tag }}
         run: |
           set -euo pipefail
-          tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
-          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/bench-svg-x86_64-unknown-linux-musl.tar.gz"
+          [[ -n "$TAG" ]] || { echo "::error::publish did not expose a tag"; exit 1; }
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$TAG/benchcat-x86_64-unknown-linux-musl.tar.gz"
           for attempt in 1 2 3 4 5 6; do
             if curl -fsI "$url" >/dev/null; then exit 0; fi
             sleep 5
@@ -537,7 +545,7 @@ jobs:
           exit 1
 
       - name: Use the action as a consumer would
-        uses: unk-404/benchmark_svg@master
+        uses: unk-404/benchcat@master
         with:
           input: examples/bench.jsonl
           format: benchmark_test
@@ -550,3 +558,102 @@ jobs:
           test -s target/consumer.svg
           grep -q '<svg' target/consumer.svg
           echo "::notice::consumer installed the published action and rendered a card"
+
+  # Release vs release performance. The current binary is both the subject and
+  # the renderer: it times both releases on one corpus and draws its own
+  # comparison card. Report-only — a regression warns, it never fails a release.
+  self-benchmark:
+    name: self-benchmark against the previous release
+    needs: [changes, publish]
+    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download the current and previous releases
+        id: releases
+        shell: bash
+        env:
+          TAG: ${{ needs.publish.outputs.tag }}
+        run: |
+          set -euo pipefail
+          tag="$TAG"
+          [[ -n "$tag" ]] || { echo "::error::publish did not expose a tag"; exit 1; }
+          prev=$(gh release list --limit 50 --json tagName --jq '.[].tagName' |
+            grep -vx "$tag" | head -n1 || true)
+          if [[ -z "$prev" ]]; then
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### benchcat self-benchmark"
+              echo
+              echo "First release: there is no previous release to compare against."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          work="$RUNNER_TEMP/benchcat-self-benchmark"
+          rm -rf "$work"
+          mkdir -p "$work/current" "$work/previous"
+          for pair in "current:$tag" "previous:$prev"; do
+            kind="${pair%%:*}"
+            ref="${pair#*:}"
+            dir="$work/$kind"
+            for attempt in 1 2 3 4 5; do
+              if gh release download "$ref" --pattern "benchcat-x86_64-unknown-linux-musl.tar.gz" -D "$dir" 2>/dev/null; then
+                break
+              fi
+              # Releases from before the rename still use the bench-svg asset name.
+              if gh release download "$ref" --pattern "bench-svg-x86_64-unknown-linux-musl.tar.gz" -D "$dir" 2>/dev/null; then
+                break
+              fi
+              sleep 5
+            done
+            if ! compgen -G "$dir/*.tar.gz" >/dev/null; then
+              echo "::error::no archive for $ref"
+              exit 1
+            fi
+            tar -xzf "$dir"/*.tar.gz -C "$dir"
+            if [[ -x "$dir/benchcat" ]]; then
+              exe="$dir/benchcat"
+            else
+              exe="$dir/bench-svg"
+            fi
+            [[ -x "$exe" ]] || { echo "::error::no benchcat binary in $ref"; exit 1; }
+            chmod +x "$exe"
+            echo "${kind}_bin=$exe" >> "$GITHUB_OUTPUT"
+          done
+          echo "available=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=$prev" >> "$GITHUB_OUTPUT"
+
+      - name: Time both binaries
+        if: steps.releases.outputs.available == 'true'
+        shell: bash
+        run: |
+          python3 scripts/self-benchmark.py             --previous "${{ steps.releases.outputs.previous_bin }}"             --current "${{ steps.releases.outputs.current_bin }}"             --previous-tag "${{ steps.releases.outputs.previous_tag }}"             --current-tag "${{ steps.releases.outputs.tag }}"             --out-dir target/self-benchmark
+
+      - name: Render the comparison card
+        if: steps.releases.outputs.available == 'true'
+        shell: bash
+        run: |
+          current="${{ steps.releases.outputs.current_bin }}"
+          previous_tag="${{ steps.releases.outputs.previous_tag }}"
+          tag="${{ steps.releases.outputs.tag }}"
+          "$current" render             --series "previous ($previous_tag)=target/self-benchmark/previous.jsonl"             --series "current ($tag)=target/self-benchmark/current.jsonl"             --title "benchcat release performance"             --subtitle "deterministic 5k/20k-row corpus; median of 7 runs; lower is better"             --out target/self-benchmark/performance.svg
+          test -s target/self-benchmark/performance.svg
+
+      - name: Attach the card to the release
+        if: steps.releases.outputs.available == 'true'
+        shell: bash
+        run: gh release upload "${{ steps.releases.outputs.tag }}" target/self-benchmark/performance.svg --clobber
+
+      - uses: actions/upload-artifact@v7
+        if: steps.releases.outputs.available == 'true'
+        with:
+          name: self-benchmark
+          path: target/self-benchmark/

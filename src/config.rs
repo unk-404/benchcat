@@ -1,4 +1,4 @@
-//! Renderer configuration (`bench-svg.toml`).
+//! Renderer configuration (`benchcat.toml`).
 
 use std::path::Path;
 
@@ -173,14 +173,14 @@ pub enum ConfigError {
 impl Config {
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
         let display = path.display().to_string();
-        // Layered sources: the TOML file, then `BENCH_SVG_*` environment
-        // overrides (`BENCH_SVG_RENDER__TITLE`, `BENCH_SVG_FONT__FAMILY`, ...).
+        // Layered sources: the TOML file, then `BENCHCAT_*` environment
+        // overrides (`BENCHCAT_RENDER__TITLE`, `BENCHCAT_FONT__FAMILY`, ...).
         // Only the `toml` feature is enabled: json/yaml/ini/ron/json5, async
         // and case conversion are not used by this tool.
         let settings = config::Config::builder()
             .add_source(config::File::from(path.to_path_buf()))
             .add_source(
-                config::Environment::with_prefix("BENCH_SVG")
+                config::Environment::with_prefix("BENCHCAT")
                     .prefix_separator("_")
                     .separator("__")
                     .try_parsing(true),
@@ -198,12 +198,12 @@ impl Config {
             })
     }
 
-    /// Load `path` when given, otherwise the conventional `bench-svg.toml`.
+    /// Load `path` when given, otherwise the conventional `benchcat.toml`.
     pub fn discover(path: Option<&Path>) -> Result<Option<Self>, ConfigError> {
         if let Some(path) = path {
             return Self::load(path).map(Some);
         }
-        let conventional = Path::new("bench-svg.toml");
+        let conventional = Path::new("benchcat.toml");
         if conventional.is_file() {
             return Self::load(conventional).map(Some);
         }

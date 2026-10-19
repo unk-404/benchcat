@@ -10,11 +10,11 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
-use bench_svg::config::Config;
-use bench_svg::font::Font;
-use bench_svg::input::{self, Format, Loaded};
-use bench_svg::model::{Benchmark, Direction, Meta, Platform, Stats};
-use bench_svg::render::{RenderRequest, SeriesInput, load_font};
+use benchcat::config::Config;
+use benchcat::font::Font;
+use benchcat::input::{self, Format, Loaded};
+use benchcat::model::{Benchmark, Direction, Meta, Platform, Stats};
+use benchcat::render::{RenderRequest, SeriesInput, load_font};
 
 const OUT_DIR: &str = "assets/examples";
 const PREVIEW_DIR: &str = "target/previews";
@@ -301,7 +301,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     config.render.title = Some("bar_scale = global".to_owned());
     config.render.subtitle =
         Some("every source is compared against the same best value".to_owned());
-    config.render.bar_scale = bench_svg::config::BarScale::Global;
+    config.render.bar_scale = benchcat::config::BarScale::Global;
     emit(
         &font,
         "15-bar-scale",
@@ -358,7 +358,7 @@ fn emit(
             ..Platform::default()
         };
     }
-    let rendered = bench_svg::render::render(RenderRequest {
+    let rendered = benchcat::render::render(RenderRequest {
         config,
         meta: &meta,
         series: &series,
@@ -405,7 +405,7 @@ fn rasterise(svg: &str, path: &Path, scale: f32) -> Result<(), Box<dyn Error>> {
 
 fn synthetic_meta() -> Meta {
     Meta {
-        tool: Some("bench-svg".to_owned()),
+        tool: Some("benchcat".to_owned()),
         tool_version: Some("0.1.0".to_owned()),
         commit: Some("a1b2c3d4e5f60718".to_owned()),
         platform: Platform {

@@ -19,7 +19,7 @@ pub(crate) fn default_subtitle(meta: &Meta) -> String {
         parts.push(format!("commit {}", short_commit(commit)));
     }
     if parts.is_empty() {
-        "bench-svg".to_owned()
+        "benchcat".to_owned()
     } else {
         parts.join(" · ")
     }

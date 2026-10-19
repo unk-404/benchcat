@@ -141,7 +141,7 @@ impl Platform {
     }
 }
 
-/// A whole canonical document (`bench-svg/report@1`).
+/// A whole canonical document (`benchcat/report@1`).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {
     #[serde(default)]
@@ -155,7 +155,7 @@ pub struct Report {
 impl Report {
     pub fn new(benchmarks: Vec<Benchmark>) -> Self {
         Self {
-            schema: Some("bench-svg/report@1".to_owned()),
+            schema: Some("benchcat/report@1".to_owned()),
             meta: Meta::default(),
             benchmarks,
         }

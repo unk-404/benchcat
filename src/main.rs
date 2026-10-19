@@ -7,13 +7,13 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 
-use bench_svg::config::Config;
-use bench_svg::input::{self, Format};
-use bench_svg::render::{RenderRequest, SeriesInput, load_font};
+use benchcat::config::Config;
+use benchcat::input::{self, Format};
+use benchcat::render::{RenderRequest, SeriesInput, load_font};
 
 #[derive(Debug, Parser)]
 #[command(
-    name = "bench-svg",
+    name = "benchcat",
     version,
     about = "Render benchmark results as a self-contained SVG card for READMEs"
 )]
@@ -49,7 +49,7 @@ struct RenderArgs {
     #[arg(long = "series", value_name = "LABEL=PATH")]
     series: Vec<String>,
 
-    /// Config file; defaults to ./bench-svg.toml when present.
+    /// Config file; defaults to ./benchcat.toml when present.
     #[arg(long, value_name = "FILE")]
     config: Option<PathBuf>,
 
@@ -99,7 +99,7 @@ fn main() -> ExitCode {
     match run(cli) {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
-            eprintln!("bench-svg: {message}");
+            eprintln!("benchcat: {message}");
             ExitCode::from(2)
         }
     }
@@ -157,7 +157,7 @@ fn render(args: RenderArgs) -> Result<(), String> {
         let (label, path) = spec
             .split_once('=')
             .ok_or_else(|| format!("--series expects `label=path`, got {spec:?}"))?;
-        config.series.push(bench_svg::config::Series {
+        config.series.push(benchcat::config::Series {
             label: label.to_owned(),
             input: path.to_owned(),
             format: None,
@@ -214,7 +214,7 @@ fn render(args: RenderArgs) -> Result<(), String> {
 
     let family = args.font.clone().or_else(|| config.font.family.clone());
     let font = load_font(args.font_file.as_deref(), family.as_deref()).map_err(|err| {
-        format!("{err}\nhint: pass --font-file, set BENCH_SVG_FONT_DIR, or place a .ttf in ./fonts")
+        format!("{err}\nhint: pass --font-file, set BENCHCAT_FONT_DIR, or place a .ttf in ./fonts")
     })?;
 
     let series: Vec<SeriesInput<'_>> = loaded
@@ -230,7 +230,7 @@ fn render(args: RenderArgs) -> Result<(), String> {
         })
         .collect();
 
-    let rendered = bench_svg::render::render(RenderRequest {
+    let rendered = benchcat::render::render(RenderRequest {
         config: &config,
         meta: &meta,
         series: &series,

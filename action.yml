@@ -1,6 +1,6 @@
-name: bench-svg
+name: benchcat
 description: Render benchmark results as a self-contained, pastel SVG card for a README
-author: bench-svg
+author: benchcat
 
 branding:
   icon: bar-chart-2
@@ -14,7 +14,7 @@ inputs:
     description: auto, json, jsonl, csv, benchmark_test, criterion, hyperfine
     default: auto
   config:
-    description: Path to bench-svg.toml (auto-discovered in the working directory)
+    description: Path to benchcat.toml (auto-discovered in the working directory)
     required: false
   out:
     description: Output SVG path
@@ -29,7 +29,7 @@ inputs:
     description: Release tag such as v2026.10.19-cd5cd87; "auto" follows the action ref or latest
     default: auto
   tool_path:
-    description: Use an existing bench-svg binary instead of downloading one
+    description: Use an existing benchcat binary instead of downloading one
     required: false
 
 outputs:

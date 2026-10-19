@@ -1,4 +1,4 @@
-//! bench-svg: render benchmark results as a self-contained pastel SVG card.
+//! benchcat: render benchmark results as a self-contained pastel SVG card.
 //!
 //! The Dart renderer this replaces hard-coded its rows, its unit conversions and
 //! its font atlas. This crate keeps the same visual language but takes the data,

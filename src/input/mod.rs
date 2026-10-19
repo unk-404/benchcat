@@ -29,7 +29,7 @@ impl Format {
     pub fn parse(value: &str) -> Option<Self> {
         match value.trim().to_ascii_lowercase().as_str() {
             "auto" | "" => Some(Self::Auto),
-            "json" | "canonical" | "bench-svg" => Some(Self::Json),
+            "json" | "canonical" | "benchcat" => Some(Self::Json),
             "jsonl" | "ndjson" => Some(Self::Jsonl),
             "csv" => Some(Self::Csv),
             "benchmark_test" | "benchmark-test" | "dart" => Some(Self::BenchmarkTest),
@@ -257,7 +257,7 @@ fn parse_file(text: &str, path: &Path, format: Format) -> Result<Loaded, InputEr
         loaded.meta.tool = Some(match detected {
             Format::BenchmarkTest => "benchmark_test".to_owned(),
             Format::Csv => "csv".to_owned(),
-            _ => "bench-svg".to_owned(),
+            _ => "benchcat".to_owned(),
         });
     }
     Ok(loaded)
@@ -359,7 +359,7 @@ mod tests {
 
     #[test]
     fn detects_pretty_printed_json_document() {
-        let text = "{\n  \"schema\": \"bench-svg/report@1\",\n  \"benchmarks\": []\n}";
+        let text = "{\n  \"schema\": \"benchcat/report@1\",\n  \"benchmarks\": []\n}";
         assert_eq!(detect(text, Path::new("x.json")), Format::Json);
     }
 

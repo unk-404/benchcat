@@ -1,20 +1,20 @@
 ---
-name: benchmark-svg
-description: Add the bench-svg GitHub Action step to a workflow to render benchmark results (criterion, hyperfine, Dart benchmark_test, canonical JSON/JSONL, CSV) as a committed SVG card. Use when wiring a benchmark chart into CI or comparing several sources/platforms. The action installs its own prebuilt binary — never download releases, vendor a binary, or call the CLI in CI.
+name: benchcat
+description: Add the benchcat GitHub Action step to a workflow to render benchmark results (criterion, hyperfine, Dart benchmark_test, canonical JSON/JSONL, CSV) as a committed SVG card. Use when wiring a benchmark chart into CI or comparing several sources/platforms. The action installs its own prebuilt binary — never download releases, vendor a binary, or call the CLI in CI.
 ---
 
-# benchmark-svg
+# benchcat
 
 Renders benchmark output as one deterministic SVG card, inside your CI.
 
-- **Reference**: `unk-404/benchmark_svg@master`. There is no `@v1` and no semantic version tag; releases
+- **Reference**: `unk-404/benchcat@master`. There is no `@v1` and no semantic version tag; releases
   are tagged `vYYYY.MM.DD-<sha7>`. Pin one of those only when you need an immutable ref.
 - **The action installs its own binary** (cached, checksum-verified). You never download or manage it.
 
 ## Do this
 
 ```yaml
-- uses: unk-404/benchmark_svg@master
+- uses: unk-404/benchcat@master
   with:
     input: target/criterion
     format: criterion
@@ -29,7 +29,7 @@ created) and exposes `svg` and `bytes` outputs. It reads the checked-out workspa
 
 - ❌ `gh release download`, `curl`, `wget` the archives
 - ❌ `cargo install`, `git clone`, or vendor the binary
-- ❌ run `bench-svg render` as a `run:` step in CI
+- ❌ run `benchcat render` as a `run:` step in CI
 - ❌ fetch the SVG from a release or artifact — the action already wrote it locally
 
 If a plan contains any of the above, replace that part with the single `uses:` step.
@@ -57,13 +57,13 @@ jobs:
         run: cargo bench -- --save-baseline main
 
       - name: Render the chart
-        uses: unk-404/benchmark_svg@master
+        uses: unk-404/benchcat@master
         id: bench
         with:
           input: target/criterion
           format: criterion
           out: assets/benchmarks.svg
-          config: bench-svg.toml        # optional
+          config: benchcat.toml        # optional
 
       - name: Commit when the chart changed
         run: |
@@ -84,7 +84,7 @@ For pull requests, skip the commit and upload `out` as an artifact instead.
 |---|---|---|
 | `input` | — | files or directories, space/newline separated; optional when the config defines `[[series]]` |
 | `format` | `auto` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
-| `config` | — | `bench-svg.toml`; auto-discovered when omitted |
+| `config` | — | `benchcat.toml`; auto-discovered when omitted |
 | `out` | `assets/benchmarks.svg` | output path |
 | `font` | — | family inside `./fonts` |
 | `font_file` | — | explicit TTF/OTF |
@@ -94,9 +94,9 @@ For pull requests, skip the commit and upload `out` as an artifact instead.
 Outputs: `svg`, `bytes` — both appear in the step summary.
 
 Binary resolution: `tool_path` → explicit `version` → the action tag when it is a release tag → the
-latest release. Cached under `RUNNER_TOOL_CACHE/bench-svg/` and verified against the release's
+latest release. Cached under `RUNNER_TOOL_CACHE/benchcat/` and verified against the release's
 `SHA256SUMS` (or a per-archive `.sha256` when present). Downloads come from the action's own repository
-(`GITHUB_ACTION_REPOSITORY`), not your repository; `BENCH_SVG_RELEASE_BASE` overrides the release base
+(`GITHUB_ACTION_REPOSITORY`), not your repository; `BENCHCAT_RELEASE_BASE` overrides the release base
 for mirrors.
 
 The action needs no token and no write permission.
@@ -114,11 +114,11 @@ The action needs no token and no write permission.
 Directory inputs are read recursively in sorted order. `format` also accepts the aliases `ndjson`,
 `dart`, `canonical` and `cargo-criterion`.
 
-Canonical shape (`bench-svg/report@1`):
+Canonical shape (`benchcat/report@1`):
 
 ```jsonc
 {
-  "schema": "bench-svg/report@1",
+  "schema": "benchcat/report@1",
   "meta": {
     "tool": "my-bench", "tool_version": "1.2.0", "commit": "cd5cd87",
     "platform": { "os": "Linux", "arch": "x86_64", "cpu": "Ryzen 9 7950X", "cores": 32 }
@@ -190,7 +190,7 @@ format = "jsonl"       # optional per-source format override
 Rows are the union of ids across sources. When the config defines `[[series]]`, positional `input` is
 ignored, so the action can omit it.
 
-## Config (`bench-svg.toml`)
+## Config (`benchcat.toml`)
 
 ```toml
 [font]
@@ -244,10 +244,10 @@ unmatched rows append unless `only_matched = true`.
 | `missing` | `"skip"` | comparison cards only |
 
 `[font] family` selects a file stem in `./fonts`; without it, `mplus-rounded` is preferred and only then
-the first font on disk. `BENCH_SVG_FONT_DIR` adds a directory searched before `./fonts`.
+the first font on disk. `BENCHCAT_FONT_DIR` adds a directory searched before `./fonts`.
 
-Each `[render]` key can be overridden from the environment: `BENCH_SVG_RENDER__TITLE`,
-`BENCH_SVG_RENDER__WIDTH`, `BENCH_SVG_FONT__FAMILY` (double underscore nests).
+Each `[render]` key can be overridden from the environment: `BENCHCAT_RENDER__TITLE`,
+`BENCHCAT_RENDER__WIDTH`, `BENCHCAT_FONT__FAMILY` (double underscore nests).
 
 Placeholders: `{commit}`, `{commit:short}`, `{commit:full}`, `{branch}`, `{tool}`, `{tool:full}`,
 `{tool_version}` (alias `{version}`), `{platform}`, `{os}`, `{os_version}`, `{arch}`, `{cpu}`,
@@ -277,7 +277,7 @@ no-op unless something actually changed.
 | rows missing | `max_rows`, `only_matched`, duplicate ids, or positional input ignored because the config has `[[series]]` |
 | unknown theme | `theme` must be `pastel` or `dark` |
 | bytes differ between machines | CRLF checkout or an edited font; keep LF |
-| action cannot download | no release yet / blocked network → `tool_path` or `BENCH_SVG_RELEASE_BASE` |
+| action cannot download | no release yet / blocked network → `tool_path` or `BENCHCAT_RELEASE_BASE` |
 
 ## Example gallery and fonts
 
@@ -287,11 +287,11 @@ OFL catalogue under `fonts/`, each with a type specimen in `assets/fonts/`.
 ## Local debugging only
 
 ```bash
-cargo install --git https://github.com/unk-404/benchmark_svg --branch master
-bench-svg formats
-bench-svg render target/criterion -o /tmp/bench.svg --format criterion
-bench-svg render --config bench-svg.toml --stdout  # [[series]] come from the config
-bench-svg render -o - examples/bench.jsonl        # "-" prints only to stdout
+cargo install --git https://github.com/unk-404/benchcat --branch master
+benchcat formats
+benchcat render target/criterion -o /tmp/bench.svg --format criterion
+benchcat render --config benchcat.toml --stdout  # [[series]] come from the config
+benchcat render -o - examples/bench.jsonl        # "-" prints only to stdout
 ```
 
 `--series LABEL=PATH` adds a comparison source; when any series exists (config or flag), positional

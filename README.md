@@ -1,4 +1,4 @@
-# Benchmark SVG
+# Benchcat
 
 Render benchmark results as a self-contained SVG card for a README.
 
@@ -13,23 +13,23 @@ stops there — committing it, uploading it, or commenting it on a pull request 
 cargo install --path .
 ```
 
-Or download a prebuilt binary from Releases (`bench-svg-<target>.tar.gz`, checksums in `SHA256SUMS`).
+Or download a prebuilt binary from Releases (`benchcat-<target>.tar.gz`, checksums in `SHA256SUMS`).
 
 A TrueType/OpenType face is required; `fonts/` ships an OFL catalogue (see [Fonts](#fonts)):
 
 ```bash
-bench-svg render bench.jsonl -o assets/bench.svg --font quicksand
-bench-svg render bench.jsonl -o assets/bench.svg --font-file MyFont.ttf
+benchcat render bench.jsonl -o assets/bench.svg --font quicksand
+benchcat render bench.jsonl -o assets/bench.svg --font-file MyFont.ttf
 ```
 
 ## Quick start
 
 ```bash
-bench-svg render bench.jsonl       -o assets/bench.svg                 # benchmark_test JSONL
-bench-svg render report.json       -o assets/bench.svg                 # canonical JSON
-bench-svg render results.csv       -o assets/bench.svg                 # CSV
-bench-svg render target/criterion  -o assets/bench.svg --format criterion
-bench-svg render bench.json        -o assets/bench.svg --format hyperfine
+benchcat render bench.jsonl       -o assets/bench.svg                 # benchmark_test JSONL
+benchcat render report.json       -o assets/bench.svg                 # canonical JSON
+benchcat render results.csv       -o assets/bench.svg                 # CSV
+benchcat render target/criterion  -o assets/bench.svg --format criterion
+benchcat render bench.json        -o assets/bench.svg --format hyperfine
 ```
 
 Same inputs produce the same bytes, so a committed SVG only changes when the data does:
@@ -43,11 +43,11 @@ git diff --quiet -- assets/bench.svg || git commit -am "bench: refresh [skip ci]
 `--format` accepts `auto` (default), `json`, `jsonl`, `csv`, `benchmark_test`, `criterion` and
 `hyperfine`. Directories are walked recursively; criterion's `report/` folder is skipped.
 
-Canonical shape, `bench-svg/report@1`:
+Canonical shape, `benchcat/report@1`:
 
 ```jsonc
 {
-  "schema": "bench-svg/report@1",
+  "schema": "benchcat/report@1",
   "meta": {
     "tool": "benchmark_test",
     "tool_version": "0.9.1",
@@ -76,7 +76,7 @@ means better.
 ### criterion
 
 ```bash
-bench-svg render target/criterion -o assets/bench.svg --format criterion
+benchcat render target/criterion -o assets/bench.svg --format criterion
 ```
 
 Walks `<bench>/new/estimates.json`, reads the sibling `benchmark.json` for `full_id` and `throughput`,
@@ -86,7 +86,7 @@ and turns `Bytes`/`Elements` throughput into `B/s`/`ops/s` (`ns/op`, lower-is-be
 ### hyperfine
 
 ```bash
-bench-svg render bench.json -o assets/bench.svg --format hyperfine
+benchcat render bench.json -o assets/bench.svg --format hyperfine
 ```
 
 Reads `--export-json` v2 (and the legacy v1 shape), using the wall-clock mean with lower-is-better;
@@ -99,7 +99,7 @@ seconds are formatted as ms/µs.
 | `INPUT...` | Files or directories |
 | `--out <FILE>` | Output path; `-` writes to stdout |
 | `--format <FORMAT>` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
-| `--config <FILE>` | Defaults to `./bench-svg.toml` when present |
+| `--config <FILE>` | Defaults to `./benchcat.toml` when present |
 | `--font <NAME>` | Family inside `./fonts` |
 | `--font-file <FILE>` | Explicit TTF/OTF |
 | `--title` / `--subtitle` / `--footer` | Override the three text lines |
@@ -109,11 +109,11 @@ seconds are formatted as ms/µs.
 | `--theme <NAME>` | `pastel` or `dark` |
 | `--stdout` | Also print the SVG |
 
-`bench-svg formats` lists the accepted format names.
+`benchcat formats` lists the accepted format names.
 
 ## Config
 
-`bench-svg.toml` is discovered from the working directory; `--config` overrides it.
+`benchcat.toml` is discovered from the working directory; `--config` overrides it.
 
 ```toml
 [font]
@@ -241,20 +241,20 @@ The action installs the right binary (cached, checksum-verified) and runs one re
 git, tokens or pull requests.
 
 ```yaml
-- uses: unk-404/benchmark_svg@master
+- uses: unk-404/benchcat@master
   id: bench
   with:
     input: target/criterion
     format: criterion
     out: assets/benchmarks.svg
-    config: bench-svg.toml
+    config: benchcat.toml
 ```
 
 | Input | Default | Meaning |
 |---|---|---|
 | `input` | — | Files or directories, space or newline separated |
 | `format` | `auto` | Same values as `--format` |
-| `config` | — | `bench-svg.toml` (auto-discovered when omitted) |
+| `config` | — | `benchcat.toml` (auto-discovered when omitted) |
 | `out` | `assets/benchmarks.svg` | Output path |
 | `font` | — | Family inside `./fonts` |
 | `font_file` | — | Explicit TTF/OTF |
@@ -263,7 +263,12 @@ git, tokens or pull requests.
 
 Outputs: `svg` and `bytes`. The step summary records both. The binary is downloaded from this action's
 own repository (`GITHUB_ACTION_REPOSITORY`), not the caller's, and its checksum is verified against the
-release. Set `BENCH_SVG_RELEASE_BASE` to a mirror when GitHub release downloads are slow.
+release. Set `BENCHCAT_RELEASE_BASE` to a mirror when GitHub release downloads are slow.
+
+Every release also benchmarks itself: the workflow times the new binary against the previous release on
+a deterministic 5k/20k-row corpus, renders the comparison with the new binary, and attaches
+`performance.svg` to the release. The numbers are medians of interleaved runs on one runner, so they are
+informative rather than a gate — a slower release warns, it does not fail.
 
 Ready-made workflows are in [`templates/`](templates/):
 
@@ -273,15 +278,15 @@ Ready-made workflows are in [`templates/`](templates/):
 
 ## For agents
 
-- [`skills/benchmark-svg/SKILL.md`](skills/benchmark-svg/SKILL.md) — integration: one action step,
+- [`skills/benchcat/SKILL.md`](skills/benchcat/SKILL.md) — integration: one action step,
   inputs, formats, config, verification, failure modes.
-- [`skills/benchmark-svg-dev/SKILL.md`](skills/benchmark-svg-dev/SKILL.md) — development: module map,
+- [`skills/benchcat-dev/SKILL.md`](skills/benchcat-dev/SKILL.md) — development: module map,
   layout engine, determinism rules, fonts, gallery and release workflow.
 
 ## Releases
 
 Tags are `vYYYY.MM.DD-<short-sha>` (no semantic versions). Each release carries the six target
-archives, `SHA256SUMS`, `bench-svg-assets.tar.gz` (gallery and specimens), and SLSA attestations.
+archives, `SHA256SUMS`, `benchcat-assets.tar.gz` (gallery and specimens), and SLSA attestations.
 
 ## License
 

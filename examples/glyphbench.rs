@@ -6,7 +6,7 @@ use std::collections::HashSet;
 use std::path::Path;
 use std::time::Instant;
 
-use bench_svg::Font;
+use benchcat::Font;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let path = std::env::args()

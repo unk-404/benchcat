@@ -4,7 +4,7 @@ family = "mplus-rounded"
 [render]
 title = "declarative row mapping"
 subtitle = "{tool} · {rows} rows"
-footer = "labels, units and values all come from bench-svg.toml — no code"
+footer = "labels, units and values all come from benchcat.toml — no code"
 only_matched = true
 
 [[row]]

@@ -1,6 +1,6 @@
 {
-  "schema": "bench-svg/report@1",
-  "meta": { "tool": "bench-svg", "tool_version": "0.1.0", "commit": "a1b2c3d4e5f60718" },
+  "schema": "benchcat/report@1",
+  "meta": { "tool": "benchcat", "tool_version": "0.1.0", "commit": "a1b2c3d4e5f60718" },
   "benchmarks": [
     { "id": "seq-read", "label": "順次読み込み", "unit": "B/s", "value": 2254857830 },
     { "id": "seq-write", "label": "順次書き込み", "unit": "B/s", "value": 2190433320 },

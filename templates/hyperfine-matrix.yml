@@ -43,9 +43,9 @@ jobs:
           merge-multiple: true
 
       # One row per command, one bar per platform: the comparison layout.
-      - uses: unk-404/benchmark_svg@master
+      - uses: unk-404/benchcat@master
         with:
           input: bench-ubuntu-24.04.json bench-macos-14.json
           format: hyperfine
           out: assets/benchmarks.svg
-          config: bench-svg.toml   # declare [[series]] there
+          config: benchcat.toml   # declare [[series]] there

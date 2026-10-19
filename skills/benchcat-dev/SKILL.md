@@ -1,9 +1,9 @@
 ---
-name: benchmark-svg-dev
-description: Develop and maintain the bench-svg Rust renderer itself — module layout, layout engine internals, determinism rules, font pipeline, gallery assets, tests and the release workflow. Use when changing rendering behaviour, adding config keys, splitting modules, or debugging why two machines produce different SVG bytes. Not for merely consuming the tool in CI; that is the benchmark-svg skill.
+name: benchcat-dev
+description: Develop and maintain the benchcat Rust renderer itself — module layout, layout engine internals, determinism rules, font pipeline, gallery assets, tests and the release workflow. Use when changing rendering behaviour, adding config keys, splitting modules, or debugging why two machines produce different SVG bytes. Not for merely consuming the tool in CI; that is the benchcat skill.
 ---
 
-# benchmark-svg development
+# benchcat development
 
 The crate renders one SVG card from canonical benchmark records. Everything below is about changing
 it, not using it.
@@ -14,7 +14,7 @@ it, not using it.
 src/
   lib.rs            module wiring + re-exports
   main.rs           clap CLI: `render`, `formats`
-  config.rs         bench-svg.toml via config-rs (file + BENCH_SVG_* env)
+  config.rs         benchcat.toml via config-rs (file + BENCHCAT_* env)
   model/            Benchmark, Meta, Report, Unit, UnitKind, formatting
   input/            format detection + json/jsonl/csv/benchmark_test readers
   adapters/         criterion directory and hyperfine JSON importers
@@ -137,7 +137,7 @@ memory-bound.
 - `metrics.rs`: advances, ink boxes, line heights.
 - `outline.rs`: `path` cache, `glyph_bounds`, rayon `extract_paths` above 96 glyphs.
 - `resolve.rs`: explicit file -> `./fonts/<family>.ttf` (default family `mplus-rounded`) -> first
-  TTF/OTF on disk -> `BENCH_SVG_FONT_DIR` entries.
+  TTF/OTF on disk -> `BENCHCAT_FONT_DIR` entries.
 
 Caches and lookups:
 
@@ -154,7 +154,7 @@ The gallery defaults to `mplus-rounded`; changing the default font changes every
 
 ## Config
 
-`Config::load` layers the TOML file with `BENCH_SVG_*` environment overrides through `config-rs`
+`Config::load` layers the TOML file with `BENCHCAT_*` environment overrides through `config-rs`
 (`toml` feature only). Add new keys to `Render` with a serde default, update `Default`, document them in
 the README and the integration skill, and add a gallery example if the key changes output.
 
@@ -174,7 +174,7 @@ Action installs the binary from the release itself. Marketplace needs a SemVer t
 not.
 
 After a successful release, a `consumer` job runs the action by reference
-(`unk-404/benchmark_svg@master`, not `uses: ./`) on Ubuntu and Windows and installs the freshly
+(`unk-404/benchcat@master`, not `uses: ./`) on Ubuntu and Windows and installs the freshly
 published binary. This is the
 only job that exercises the composite-action download path: GitHub leaves `GITHUB_ACTION_REPOSITORY`
 empty inside composite steps ([community #49245](https://github.com/orgs/community/discussions/49245)),
@@ -196,7 +196,11 @@ and `workflow_dispatch` runs are classified the same way, and the workflow pins 
 `toolchain:` inputs, so local builds should use the same version (`rustup run 1.99.0 cargo ...`) when
 comparing bytes. Every cargo invocation uses `--locked`, so a manifest change without an updated lock
 fails instead of silently resolving a new graph. The action job also runs `scripts/install.sh` against
-the latest release, so installer changes are tested without a rebuild.
+the latest release, so installer changes are tested without a rebuild. After a release, a
+`self-benchmark` job times the new binary against the previous release (`scripts/self-benchmark.py`,
+deterministic 5k/20k-row corpus, interleaved medians), renders the comparison with the new binary,
+attaches `performance.svg` to the release and appends the table to the job summary. It is report-only:
+a slowdown adds a warning annotation, it never fails a published release.
 
 ## Where to change what
 

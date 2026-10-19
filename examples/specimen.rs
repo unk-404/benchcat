@@ -13,12 +13,12 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-use bench_svg::Font;
-use bench_svg::layout::{
+use benchcat::Font;
+use benchcat::layout::{
     NUMBER_BADGE_BODY_CENTER, NUMBER_BADGE_HEIGHT, NUMBER_SIZE, Rect, number_badge_width,
     number_ink_center_x,
 };
-use bench_svg::svg::{PASTEL, number_cat};
+use benchcat::svg::{PASTEL, number_cat};
 
 const OUT_DIR: &str = "assets/fonts";
 const PREVIEW_DIR: &str = "target/previews";
@@ -383,7 +383,7 @@ fn specimen(font: &Font) -> String {
         font.ascent,
         font.descent,
     );
-    let footer = "Type specimen · missing glyphs become pastel cats · bench-svg";
+    let footer = "Type specimen · missing glyphs become pastel cats · benchcat";
 
     let rows_height = rows.len() as f32 * (ROW_HEIGHT + ROW_GAP);
     let height = HEADER_HEIGHT + rows_height + 38.0;

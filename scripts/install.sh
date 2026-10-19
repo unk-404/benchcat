@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Install the bench-svg binary for this runner.
+# Install the benchcat binary for this runner.
 #
 # Resolution order:
 #   1. INPUT_TOOL_PATH                     — use a binary that is already present
@@ -8,16 +8,16 @@
 #   4. latest release                      — no API call, no rate limiting
 set -euo pipefail
 
-log() { printf '[bench-svg] %s\n' "$*"; }
+log() { printf '[benchcat] %s\n' "$*"; }
 fail() {
-  printf '[bench-svg] error: %s\n' "$*" >&2
+  printf '[benchcat] error: %s\n' "$*" >&2
   exit 1
 }
 
 if [[ -n "${INPUT_TOOL_PATH:-}" ]]; then
   [[ -x "$INPUT_TOOL_PATH" ]] || fail "tool-path is not executable: $INPUT_TOOL_PATH"
   dirname "$INPUT_TOOL_PATH" >>"${GITHUB_PATH:-/dev/null}"
-  "$INPUT_TOOL_PATH" --version >/dev/null || fail "tool-path is not bench-svg: $INPUT_TOOL_PATH"
+  "$INPUT_TOOL_PATH" --version >/dev/null || fail "tool-path is not benchcat: $INPUT_TOOL_PATH"
   log "using existing binary at $INPUT_TOOL_PATH"
   exit 0
 fi
@@ -59,9 +59,9 @@ else
   fail "no prebuilt binary for $os/$arch; pass tool-path instead"
 fi
 
-cache_root="${RUNNER_TOOL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}}/bench-svg"
+cache_root="${RUNNER_TOOL_CACHE:-${XDG_CACHE_HOME:-$HOME/.cache}}/benchcat"
 cache_dir="$cache_root/${version//\//_}-$target"
-bin="$cache_dir/bench-svg"
+bin="$cache_dir/benchcat"
 [[ "$os" == windows ]] && bin="$bin.exe"
 
 if [[ -x "$bin" ]]; then
@@ -89,22 +89,32 @@ if [[ -z "$action_repo" && -n "${GITHUB_ACTION_PATH:-}" ]]; then
   fi
 fi
 repo="${action_repo:-${GITHUB_REPOSITORY:-}}"
-base="${BENCH_SVG_RELEASE_BASE:-}"
+base="${BENCHCAT_RELEASE_BASE:-}"
 if [[ -z "$base" ]]; then
-  [[ -n "$repo" ]] || fail "cannot tell which repository hosts this action; pass tool-path or set BENCH_SVG_RELEASE_BASE"
+  [[ -n "$repo" ]] || fail "cannot tell which repository hosts this action; pass tool-path or set BENCHCAT_RELEASE_BASE"
   base="https://github.com/$repo/releases"
 fi
 if [[ "$version" == "latest" ]]; then
-  url="$base/latest/download/bench-svg-$target.tar.gz"
+  url="$base/latest/download/benchcat-$target.tar.gz"
 else
-  url="$base/download/$version/bench-svg-$target.tar.gz"
+  url="$base/download/$version/benchcat-$target.tar.gz"
 fi
 
 mkdir -p "$cache_dir"
-archive="$cache_dir/bench-svg.tar.gz"
+archive="$cache_dir/benchcat.tar.gz"
 log "downloading $url"
-curl -fsSL --retry 3 --retry-delay 2 -o "$archive" "$url" ||
-  fail "download failed; pass tool-path, or set BENCH_SVG_RELEASE_BASE to a mirror"
+if ! curl -fsSL --retry 3 --retry-delay 2 -o "$archive" "$url"; then
+  # Releases published before the repository was renamed still use the
+  # bench-svg-* asset names; fall back so `version: latest` keeps working.
+  legacy_url="${url/benchcat-/bench-svg-}"
+  if [[ "$legacy_url" == "$url" ]]; then
+    fail "download failed; pass tool-path, or set BENCHCAT_RELEASE_BASE to a mirror"
+  fi
+  log "retrying with the pre-rename asset name"
+  curl -fsSL --retry 3 --retry-delay 2 -o "$archive" "$legacy_url" ||
+    fail "download failed; pass tool-path, or set BENCHCAT_RELEASE_BASE to a mirror"
+  url="$legacy_url"
+fi
 
 # Releases carry a per-archive .sha256 and a combined SHA256SUMS; older ones
 # only have SHA256SUMS, so try the single file first and fall back to the list.
@@ -117,16 +127,17 @@ expected=""
 if curl -fsSL --retry 2 -o "$archive.sha256" "$url.sha256" 2>/dev/null; then
   expected=$(awk '{print $1; exit}' "$archive.sha256")
 elif curl -fsSL --retry 2 -o "$archive.sha256" "$sums_url" 2>/dev/null; then
-  expected=$(awk -v name="bench-svg-$target.tar.gz" '$2 == name {print $1; exit}' "$archive.sha256")
+  asset="$(basename "$url")"
+  expected=$(awk -v name="$asset" '$2 == name {print $1; exit}' "$archive.sha256")
 fi
 if [[ -n "$expected" ]]; then
   # Hash the bare file name from inside its directory. MSYS sha256sum escapes a
   # Windows path (leading backslash, doubled separators), so hashing
   # "$archive" directly yields "\\<hash>" and never matches on Windows runners.
   if command -v sha256sum >/dev/null 2>&1; then
-    actual=$(cd "$cache_dir" && sha256sum bench-svg.tar.gz | awk '{print $1}')
+    actual=$(cd "$cache_dir" && sha256sum benchcat.tar.gz | awk '{print $1}')
   else
-    actual=$(cd "$cache_dir" && shasum -a 256 bench-svg.tar.gz | awk '{print $1}')
+    actual=$(cd "$cache_dir" && shasum -a 256 benchcat.tar.gz | awk '{print $1}')
   fi
   actual="${actual#\\}"
   [[ "$expected" == "$actual" ]] || fail "checksum mismatch for $url"
@@ -139,11 +150,17 @@ fi
 # as a remote host by GNU tar on Windows runners.
 (
   cd "$cache_dir"
-  tar -xzf bench-svg.tar.gz
+  tar -xzf benchcat.tar.gz
 )
+# Pre-rename archives contain a binary called bench-svg; expose the new name.
+legacy_bin="$cache_dir/bench-svg"
+[[ "$os" == windows ]] && legacy_bin="$legacy_bin.exe"
+if [[ ! -f "$bin" && -f "$legacy_bin" ]]; then
+  mv "$legacy_bin" "$bin"
+fi
 rm -f "$archive" "$archive.sha256"
 chmod +x "$bin"
-[[ -x "$bin" ]] || fail "archive did not contain bench-svg"
+[[ -x "$bin" ]] || fail "archive did not contain benchcat"
 "$bin" --version >/dev/null || fail "downloaded binary does not run on this runner"
 
 log "installed $("$bin" --version) from $version"

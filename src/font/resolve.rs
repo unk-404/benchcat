@@ -16,7 +16,7 @@ pub fn resolve_font(explicit: Option<&Path>, family: Option<&str>) -> Result<Pat
         });
     }
     let mut dirs: Vec<PathBuf> = Vec::new();
-    if let Ok(dir) = std::env::var("BENCH_SVG_FONT_DIR") {
+    if let Ok(dir) = std::env::var("BENCHCAT_FONT_DIR") {
         dirs.push(PathBuf::from(dir));
     }
     dirs.push(PathBuf::from("fonts"));
