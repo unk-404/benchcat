@@ -305,10 +305,6 @@ pub fn layout(
             width: length(options.width),
             height: auto(),
         },
-        min_size: Size {
-            width: auto(),
-            height: length(options.min_height),
-        },
         padding: taffy::geometry::Rect {
             left: length(options.padding),
             right: length(options.padding),
@@ -446,14 +442,9 @@ pub fn layout(
         cells_per_section.push(cells);
     }
 
-    // Absorb the free space a `min_height` creates, keeping the footer pinned to
-    // the bottom while sections stay top-aligned.
-    let spacer = tree.new_leaf(Style {
-        flex_grow: 1.0,
-        ..Default::default()
-    })?;
-    tree.add_child(root, spacer)?;
-
+    // Absorb free space with a spacer: the footer is pushed down after the
+    // layout pass when `min_height` is larger than the content (taffy clamps
+    // `min_size` after the flex pass, so growing inside the tree is unreliable).
     let footer_style = Style {
         margin: taffy::geometry::Rect {
             left: length(0.0),
@@ -473,9 +464,7 @@ pub fn layout(
         width: AvailableSpace::Definite(options.width),
         height: AvailableSpace::MaxContent,
     };
-    tree.compute_layout_with_measure(
-        root,
-        available,
+    let mut measure =
         |input: LayoutInput, _node: NodeId, context: Option<&mut TextSpec>, _style: &Style| {
             let Some(spec) = context else {
                 return LayoutOutput::from_outer_size(Size::ZERO);
@@ -490,9 +479,8 @@ pub fn layout(
                 width = width.min(known);
             }
             LayoutOutput::from_outer_size(Size { width, height })
-        },
-    )?;
-
+        };
+    tree.compute_layout_with_measure(root, available, &mut measure)?;
     let root_box = tree.layout(root)?;
     let header_box = tree.layout(header)?;
     let title_box = tree.layout(title)?;
@@ -670,7 +658,7 @@ pub fn layout(
         }
     }
 
-    Ok(LayoutPlan {
+    let mut plan = LayoutPlan {
         width,
         height,
         padding: options.padding,
@@ -687,7 +675,16 @@ pub fn layout(
         },
         card_height,
         multi_series,
-    })
+    };
+
+    // `min_height` keeps the footer on the bottom edge while rows stay top
+    // aligned: the extra height goes to the gap above the footer.
+    if plan.height < options.min_height {
+        let extra = options.min_height - plan.height;
+        plan.height = options.min_height;
+        plan.footer.y += extra;
+    }
+    Ok(plan)
 }
 
 #[cfg(test)]
@@ -729,6 +726,20 @@ mod tests {
             footer: "generated".to_owned(),
             legend: Vec::new(),
         }
+    }
+
+    #[test]
+    fn min_height_pins_the_footer() {
+        let Some(font) = font() else { return };
+        let mut opts = options();
+        opts.min_height = 520.0;
+        let plan = layout(&font, &[row("Sequential read", None)], &opts).expect("layout");
+        assert!(
+            (plan.footer.bottom() + plan.padding - plan.height).abs() < 2.0,
+            "footer bottom {} vs card {}",
+            plan.footer.bottom() + plan.padding,
+            plan.height
+        );
     }
 
     #[test]
