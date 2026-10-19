@@ -1,11 +1,14 @@
 //! Generate the example gallery under `assets/examples/`.
 //!
 //! Usage:
-//!   cargo run --example gallery                # write SVGs
-//!   cargo run --example gallery -- --png       # also rasterise previews to target/previews
+//!   cargo run --example gallery                        # write every SVG
+//!   cargo run --example gallery -- --only 13          # one example (prefix match)
+//!   cargo run --example gallery -- --only 01,02 --png  # several, plus PNG previews
+//!   cargo run --example gallery -- --list              # print example names
 
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 
 use bench_svg::config::Config;
 use bench_svg::font::Font;
@@ -16,8 +19,63 @@ use bench_svg::render::{RenderRequest, SeriesInput, load_font};
 const OUT_DIR: &str = "assets/examples";
 const PREVIEW_DIR: &str = "target/previews";
 
+/// `--only a,b` selection; `None` writes everything.
+static ONLY: OnceLock<Option<Vec<String>>> = OnceLock::new();
+
+const NAMES: &[&str] = &[
+    "01-basic",
+    "02-comparison",
+    "03-units",
+    "04-min-height",
+    "05-dark",
+    "06-max-rows",
+    "07-dynamic-height",
+    "08-cjk",
+    "09-notes",
+    "10-criterion",
+    "11-hyperfine",
+    "12-rows",
+    "13-sections",
+];
+
+fn selected(name: &str) -> bool {
+    match ONLY.get().and_then(|only| only.as_ref()) {
+        None => true,
+        Some(prefixes) => prefixes
+            .iter()
+            .any(|prefix| name.starts_with(prefix.as_str())),
+    }
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let with_png = std::env::args().any(|arg| arg == "--png");
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    if args.iter().any(|arg| arg == "--list") {
+        for name in NAMES {
+            println!("{name}");
+        }
+        return Ok(());
+    }
+    let only = args
+        .windows(2)
+        .find(|pair| pair[0] == "--only")
+        .map(|pair| {
+            pair[1]
+                .split(',')
+                .map(str::trim)
+                .filter(|name| !name.is_empty())
+                .map(str::to_owned)
+                .collect::<Vec<_>>()
+        });
+    if let Some(list) = &only {
+        for name in list {
+            if !NAMES.iter().any(|known| known.starts_with(name.as_str())) {
+                return Err(format!("unknown example {name:?}; try --list").into());
+            }
+        }
+    }
+    let _ = ONLY.set(only);
+
+    let with_png = args.iter().any(|arg| arg == "--png");
     let font = load_font(None, Some("mplus-rounded"))?;
     std::fs::create_dir_all(OUT_DIR)?;
     if with_png {
@@ -229,6 +287,9 @@ fn emit(
     sources: &[(&str, Option<&str>, &[Benchmark])],
     with_png: bool,
 ) -> Result<(), Box<dyn Error>> {
+    if !selected(name) {
+        return Ok(());
+    }
     let series: Vec<SeriesInput<'_>> = sources
         .iter()
         .map(|(label, color, benchmarks)| SeriesInput {

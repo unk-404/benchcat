@@ -75,13 +75,32 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("no fonts found in ./fonts".into());
     }
 
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let stem_of = |path: &PathBuf| {
+        path.file_stem()
+            .map(|stem| stem.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "font".to_owned())
+    };
+    if args.iter().any(|arg| arg == "--list") {
+        for path in &fonts {
+            println!("{}", stem_of(path));
+        }
+        return Ok(());
+    }
+    let only = args
+        .windows(2)
+        .find(|pair| pair[0] == "--font" || pair[0] == "--only")
+        .map(|pair| pair[1].clone());
+
     for path in fonts {
+        let stem = stem_of(&path);
+        if let Some(only) = &only
+            && !stem.starts_with(only.as_str())
+        {
+            continue;
+        }
         let font = Font::load(&path)?;
         let svg = specimen(&font);
-        let stem = path
-            .file_stem()
-            .map(|stem| stem.to_string_lossy().into_owned())
-            .unwrap_or_else(|| "font".to_owned());
         let out = Path::new(OUT_DIR).join(format!("{stem}.svg"));
         std::fs::write(&out, &svg)?;
         println!("{:<40} {:>8} bytes", out.display(), svg.len());
