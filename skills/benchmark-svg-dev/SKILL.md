@@ -173,16 +173,22 @@ test (3 OS) -> build 6 targets -> publish. Tags are `v$(date -u +%Y.%m.%d)-${GIT
 Action installs the binary from the release itself. Marketplace needs a SemVer tag, which date tags are
 not.
 
-A `changes` job gates `build`/`publish`: only `Cargo.toml`, `Cargo.lock`, `src/`, `examples/`, `.cargo/`
-and `rust-toolchain*` trigger a release build. Scripts, `action.yml`, fonts, templates, docs, assets and
-the workflow itself do not, because they cannot change the binary; `workflow_dispatch` always builds. The
-action job also runs `scripts/install.sh` against the latest release, so installer changes are still
-tested without a rebuild.
+A `changes` job classifies the pushed range (or the PR merge base) and sizes the run:
 
-A push that only touches `fonts/`, `assets/` or markdown takes a second shortcut: verify, identical-bytes,
-the action test, build and publish are skipped and the run goes straight to the assets job, which
-regenerates the gallery/specimens and commits them. That is why font-only commits do not have to pay for
-a Rust build on three operating systems.
+| changed paths | runs |
+|---|---|
+| `Cargo.toml`, `Cargo.lock`, `src/`, `examples/`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
+| `fonts/`, `assets/` | assets only (fonts are runtime inputs, not compiled in) |
+| `scripts/`, `action.yml`, `templates/`, `.github/` | the action test only |
+| markdown, `LICENSE`, `.gitignore` | nothing beyond classification |
+| anything unrecognised | full chain (safe default) |
+
+Mixed changes run the union; a binary change always implies assets and the action test. `pull_request`
+and `workflow_dispatch` runs are classified the same way, and the workflow pins Rust 1.99.0 through the
+`toolchain:` inputs, so local builds should use the same version (`rustup run 1.99.0 cargo ...`) when
+comparing bytes. Every cargo invocation uses `--locked`, so a manifest change without an updated lock
+fails instead of silently resolving a new graph. The action job also runs `scripts/install.sh` against
+the latest release, so installer changes are tested without a rebuild.
 
 ## Where to change what
 

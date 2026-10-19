@@ -1,18 +1,19 @@
 name: bundle
 
-# One ordered chain:
+# One chain, sized to the change:
 #
-# A fonts/assets/docs-only push skips straight to the assets job and stops:
-# there is nothing new to compile, verify or release.
+#   full        Rust sources, manifests, the toolchain or .gitattributes
+#               changed: verify on 3 OS, byte identity, assets, the action test,
+#               then (outside pull requests) a 6-target release build + publish.
+#   assets      only fonts/, assets/ or docs changed: regenerate the gallery and
+#               specimens and stop. Fonts are runtime inputs, not compiled in.
+#   action      only scripts/, action.yml, templates/ or the workflow changed:
+#               run the action test only and stop.
+#   docs        markdown/LICENSE/.gitignore only: nothing to do.
 #
-#   verify (3 OS)        fmt, clippy, tests, plus one rendered card per platform
-#     └─ identical-bytes three platforms must agree on every byte
-#          └─ assets     regenerate gallery + specimens; commit on main,
-#                        fail the diff on pull requests
-#               └─ action (3 OS)   the composite action itself, via `uses: ./`
-#                    └─ build (6)  release archives, only when binary inputs
-#                                  changed and never on pull requests
-#                         └─ publish   tag, archives, and the generated assets
+# Mixed changes run the union (full implies assets and action). Anything the
+# classifier does not recognise falls back to `full`, so a new top-level file
+# can never silently skip the build.
 
 on:
   push:
@@ -27,77 +28,103 @@ on:
 permissions:
   contents: read
 
-# PR runs are superseded by the next push; main runs must finish so releases are
-# never cancelled halfway.
+# PR runs are superseded by the next push; master runs must finish so a release
+# is never cancelled halfway through.
 concurrency:
   group: bundle-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# The toolchain is pinned in the four `toolchain:` inputs (1.99.0) so a stable
+# channel bump cannot change the bytes we test, commit and release. Bump them
+# together with Cargo.toml's rust-version when the MSRV moves.
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Two questions decide the rest of the run:
-  #   binary      - did anything that can change the release binary change
-  #                 (manifests, Rust sources, examples, cargo config, toolchain)?
-  #   assets_only - did only fonts/assets/docs change? Then skip verify, the
-  #                 action test, build and publish, regenerate assets and stop.
-  # Scripts, action.yml, templates and the workflow itself still run verify and
-  # the action test, but never need a new release. `workflow_dispatch` always
-  # builds.
   changes:
-    name: detect binary changes
+    name: classify the change
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
-      binary: ${{ steps.diff.outputs.binary }}
-      assets_only: ${{ steps.diff.outputs.assets_only }}
+      binary: ${{ steps.classify.outputs.binary }}
+      assets: ${{ steps.classify.outputs.assets }}
+      action: ${{ steps.classify.outputs.action }}
     steps:
       - uses: actions/checkout@v7
         with:
+          # push needs the pushed range; pull requests need the merge base.
           fetch-depth: 0
-      - id: diff
+      - id: classify
         shell: bash
         run: |
           set -euo pipefail
           binary=true
-          assets_only=false
-          pattern='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|examples/|\.cargo/|rust-toolchain)'
+          assets=true
+          action=true
+
+          rust='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|examples/|\.cargo/|rust-toolchain|\.gitattributes$)'
+          known='^(fonts/|assets/|.*\.md$|LICENSE|\.gitignore$|scripts/|action\.yml$|templates/|\.github/)'
+
+          classify() {
+            local from="$1" to="$2"
+            if ! git diff --name-only "$from" "$to" >/tmp/changed 2>/dev/null; then
+              echo "cannot diff $from..$to: full chain"
+              return
+            fi
+            {
+              echo "changed files:"
+              sed 's/^/  /' /tmp/changed
+            }
+            if grep -Eq "$rust" /tmp/changed; then
+              echo "Rust inputs changed: full chain"
+            elif grep -Evq "$known" /tmp/changed; then
+              echo "unrecognised paths: full chain (safe default)"
+            else
+              binary=false
+              assets=false
+              action=false
+              if grep -Eq '^(fonts/|assets/)' /tmp/changed; then
+                assets=true
+              fi
+              if grep -Eq '^(scripts/|action\.yml$|templates/|\.github/)' /tmp/changed; then
+                action=true
+              fi
+              echo "binary=$binary assets=$assets action=$action"
+            fi
+          }
+
           case "${{ github.event_name }}" in
             push)
               before="${{ github.event.before }}"
               after="${{ github.sha }}"
               if [[ -z "$before" || "$before" =~ ^0+$ ]]; then
-                echo "no parent commit: building"
-              elif git diff --name-only "$before" "$after" >/dev/null 2>&1; then
-                changed=$(git diff --name-only "$before" "$after")
-                if grep -Eq "$pattern" <<<"$changed"; then
-                  echo "binary inputs changed:"
-                  grep -E "$pattern" <<<"$changed"
-                else
-                  binary=false
-                  echo "no binary inputs changed; skipping the release build"
-                fi
-                if [[ -n "$changed" ]] && ! grep -Evq '^(fonts/|assets/|.*\.md$)' <<<"$changed"; then
-                  assets_only=true
-                  echo "fonts/assets/docs only: regenerating assets and stopping"
-                fi
+                echo "no parent commit: full chain"
               else
-                echo "cannot diff $before..$after: building"
+                classify "$before" "$after"
               fi
               ;;
+            pull_request)
+              classify "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}"
+              ;;
             *)
-              echo "manual run or pull request: building"
+              echo "manual run: full chain"
               ;;
           esac
+
+          # A binary change always regenerates assets and exercises the action.
+          if [[ "$binary" == true ]]; then
+            assets=true
+            action=true
+          fi
           echo "binary=$binary" >> "$GITHUB_OUTPUT"
-          echo "assets_only=$assets_only" >> "$GITHUB_OUTPUT"
+          echo "assets=$assets" >> "$GITHUB_OUTPUT"
+          echo "action=$action" >> "$GITHUB_OUTPUT"
 
   verify:
     name: verify (${{ matrix.os }})
-    timeout-minutes: 30
     needs: changes
-    if: ${{ needs.changes.outputs.assets_only != 'true' }}
+    if: ${{ needs.changes.outputs.binary == 'true' }}
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -106,41 +133,47 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.99.0"
           components: rustfmt, clippy
 
       - uses: Swatinem/rust-cache@v2
 
+      # Formatting and lints are OS independent; keep them off the slower runners.
       - name: Format
         if: runner.os == 'Linux'
         run: cargo fmt --all -- --check
 
       - name: Clippy
         if: runner.os == 'Linux'
-        run: cargo clippy --all-targets -- -D warnings
+        run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --all-targets
+        run: cargo test --all-targets --locked
 
       - name: Render one card per platform
-        run: cargo run --quiet -- render examples/bench.jsonl -o target/bench.svg
+        run: cargo run --locked --quiet -- render examples/bench.jsonl -o target/bench.svg
 
       - uses: actions/upload-artifact@v7
+        if: success()
         with:
-          name: bench-svg-${{ matrix.os }}
+          # `card-` keeps these apart from the `bench-svg-<target>` release
+          # artifacts that other jobs may be uploading at the same time.
+          name: card-${{ matrix.os }}
           path: target/bench.svg
           if-no-files-found: error
 
   identical-bytes:
     name: identical bytes across platforms
+    needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 10
-    needs: verify
     steps:
       - uses: actions/download-artifact@v8
         with:
-          pattern: bench-svg-*
+          pattern: card-*
+          # NOT merge-multiple: every artifact contains a file named bench.svg.
           path: artifacts
       - name: Compare
         shell: bash
@@ -156,34 +189,29 @@ jobs:
             cmp "${files[0]}" "$file"
           done
 
-  # Generated assets are part of the repository, so this stage is a gate:
-  # on a pull request the regenerated bytes must equal the committed ones;
-  # on main the fresh bytes are committed back (with [skip ci]) and handed to
-  # the release.
+  # Generated assets are part of the repository, so this stage is a gate: on a
+  # pull request the regenerated bytes must equal the committed ones; on main the
+  # fresh bytes are committed back (with [skip ci]) and handed to the release.
   assets:
     name: generate assets
+    needs: [changes, verify, identical-bytes]
+    if: ${{ !cancelled() && needs.changes.outputs.assets == 'true' && (needs.changes.outputs.binary != 'true' || (needs.verify.result == 'success' && needs.identical-bytes.result == 'success')) }}
     timeout-minutes: 30
     permissions:
       contents: write
-    needs: [changes, verify, identical-bytes]
-    if: ${{ !cancelled() && (needs.changes.outputs.assets_only == 'true' || (needs.verify.result == 'success' && needs.identical-bytes.result == 'success')) }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-        if: github.event_name == 'pull_request'
 
-      - uses: actions/checkout@v7
-        if: github.event_name != 'pull_request'
+      - uses: dtolnay/rust-toolchain@master
         with:
-          ref: ${{ github.event.repository.default_branch }}
-
-      - uses: dtolnay/rust-toolchain@stable
+          toolchain: "1.99.0"
       - uses: Swatinem/rust-cache@v2
 
       - name: Generate gallery and specimens
         run: |
-          cargo run --example gallery
-          cargo run --example specimen
+          cargo run --locked --example gallery
+          cargo run --locked --example specimen
 
       - name: Generated bytes must match the committed ones
         if: github.event_name == 'pull_request'
@@ -195,23 +223,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [[ "${GITHUB_REF_TYPE:-}" != "branch" ]]; then
+            echo "not on a branch; nothing to commit"
+            exit 0
+          fi
           if git diff --quiet -- assets/examples assets/fonts; then
             echo "assets already up to date"
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Never merge here: a plain `git pull` would add
-          # "Merge branch 'master' of ..." commits to the repository.
-          git config pull.rebase true
-          git config merge.ff only
-          git add assets/examples assets/fonts
-          git commit -m "chore(assets): regenerate gallery and type specimens for ${GITHUB_SHA::7} [skip ci]"
+          commit_assets() {
+            git add assets/examples assets/fonts
+            git commit -m "chore(assets): regenerate gallery and type specimens for ${GITHUB_SHA::7} [skip ci]"
+          }
+          commit_assets
+          branch="$GITHUB_REF_NAME"
           for attempt in 1 2 3; do
-            if git pull --rebase --autostash && git push; then
+            git fetch origin "$branch"
+            if git rebase "origin/$branch" 2>/dev/null &&
+               git push origin "HEAD:$branch"; then
               exit 0
             fi
+            # Someone pushed while we rendered: regenerate on top of their tree.
             git rebase --abort 2>/dev/null || true
+            git reset --hard "origin/$branch"
+            cargo run --locked --example gallery
+            cargo run --locked --example specimen
+            if git diff --quiet -- assets/examples assets/fonts; then
+              echo "the remote already has these assets"
+              exit 0
+            fi
+            commit_assets
             sleep $((attempt * 3))
           done
           echo "::error::could not push the regenerated assets"
@@ -226,13 +269,12 @@ jobs:
           if-no-files-found: error
 
   # The action is the product: install script, render script, inputs and outputs.
-  # `tool_path` points at the binary this job just built, so the release download
-  # path does not need to exist yet.
+  # It builds its own debug binary, so it runs in parallel with verify.
   action:
     name: action (${{ matrix.os }})
+    needs: changes
+    if: ${{ needs.changes.outputs.action == 'true' }}
     timeout-minutes: 30
-    needs: [changes, verify]
-    if: ${{ needs.changes.outputs.assets_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -240,10 +282,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.0"
       - uses: Swatinem/rust-cache@v2
 
-      - run: cargo build
+      - run: cargo build --locked
 
       - name: bench-svg action
         id: bench
@@ -264,7 +308,7 @@ jobs:
           grep -q '<svg' target/action.svg
           echo "action rendered ${{ steps.bench.outputs.bytes }} bytes"
 
-      # The action job above uses tool_path, so the download path is otherwise
+      # The action test above uses tool_path, so the download path is otherwise
       # untested. Exercise install.sh against the latest release on one runner.
       - name: Installer against the latest release
         if: runner.os == 'Linux'
@@ -284,16 +328,15 @@ jobs:
           bin="$RUNNER_TOOL_CACHE/bench-svg/latest-x86_64-unknown-linux-musl/bench-svg"
           "$bin" --version
 
-  # Everything below only runs outside pull requests.
   build:
     name: build ${{ matrix.target }}
+    needs: [changes, verify, action]
+    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     timeout-minutes: 60
     permissions:
       contents: read
       id-token: write
       attestations: write
-    needs: [changes, action]
-    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -315,13 +358,18 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@master
         with:
+          toolchain: "1.99.0"
           targets: ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.target }}
+          key: ${{ matrix.target }}-1.99.0
+
+      - name: Install musl toolchain
+        if: ${{ contains(matrix.target, 'linux-musl') && matrix.cross != true }}
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Install cross
         if: matrix.cross
@@ -368,11 +416,11 @@ jobs:
 
   publish:
     name: publish
+    needs: [changes, build, assets]
+    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     timeout-minutes: 30
     permissions:
       contents: write
-    needs: [changes, build, assets]
-    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
