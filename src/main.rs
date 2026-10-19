@@ -1,4 +1,8 @@
 use std::path::PathBuf;
+
+#[cfg(not(target_env = "musl"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};

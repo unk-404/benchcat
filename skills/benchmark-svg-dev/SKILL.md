@@ -112,6 +112,16 @@ strings.
 4. `missing = "skip"` sets `present: false`; `"placeholder"` draws an empty track and an em dash.
 5. Build `RowPlan`s, then `layout::layout`, then `svg::render`.
 
+## Allocator
+
+The binary uses `mimalloc` as its global allocator (`src/main.rs`). It is a target-specific dependency,
+so the musl releases keep the system allocator and do not need a C toolchain for that target.
+
+Allocation was a real bottleneck: switching allocators cut a 20k-row card from 420 ms to 299 ms at one
+thread and from 315 ms to 242 ms at 32 threads. Peak RSS goes up because mimalloc keeps freed pages
+(20k rows / 36 MB SVG: 158 MB -> 315 MB); that is the trade-off to revisit if very large cards become
+memory-bound.
+
 ## Fonts
 
 `font/` keeps `skrifa` only for parsing; no font is embedded.

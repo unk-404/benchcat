@@ -32,3 +32,6 @@ unicode-linebreak = "0.1.5"
 [dev-dependencies]
 insta = "1.49.0"
 resvg = "0.48.1"
+
+[target.'cfg(not(target_env = "musl"))'.dependencies]
+mimalloc = { version = "0.1.52", default-features = false }
