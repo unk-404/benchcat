@@ -4,6 +4,7 @@ mod atlas;
 mod badge;
 mod emit;
 mod theme;
+mod writer;
 
 pub use atlas::Anchor;
 pub use badge::number_cat;

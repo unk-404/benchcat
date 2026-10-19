@@ -20,7 +20,7 @@ src/
   adapters/         criterion directory and hyperfine JSON importers
   font/             metrics, outline extraction, file resolution
   layout/           pure geometry: taffy tree, badges, sections, row heights
-  svg/              emission: theme, atlas, text, rows, legend, cat badge
+  svg/              emission: writer, theme, atlas, text, rows, legend, cat badge
   render/           orchestration: series union, bar scaling, placeholders
   rows.rs           [[row]] matching, captures, expressions
   expr.rs           arithmetic used by row `value`
