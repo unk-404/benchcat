@@ -13,6 +13,7 @@ categories = ["command-line-utilities", "development-tools::profiling"]
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
+config = { version = "0.15.25", default-features = false, features = ["toml"] }
 csv = "1.4.0"
 globset = "0.4.20"
 libm = "0.2.16"
@@ -24,7 +25,6 @@ serde_json = "1.0.154"
 skrifa = "0.48.0"
 taffy = "0.15.0"
 thiserror = "2.0.21"
-toml = "1.1.8"
 unicode-linebreak = "0.1.5"
 
 [dev-dependencies]

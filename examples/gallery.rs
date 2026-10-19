@@ -47,35 +47,41 @@ fn selected(name: &str) -> bool {
     }
 }
 
+#[derive(clap::Parser)]
+#[command(about = "Generate the example gallery under assets/examples/")]
+struct Args {
+    /// Only these examples, comma separated (prefix match)
+    #[arg(long, value_delimiter = ',')]
+    only: Vec<String>,
+    /// Also rasterise PNG previews into target/previews
+    #[arg(long)]
+    png: bool,
+    /// Print the example names and exit
+    #[arg(long)]
+    list: bool,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.iter().any(|arg| arg == "--list") {
+    let args = <Args as clap::Parser>::parse();
+    if args.list {
         for name in NAMES {
             println!("{name}");
         }
         return Ok(());
     }
-    let only = args
-        .windows(2)
-        .find(|pair| pair[0] == "--only")
-        .map(|pair| {
-            pair[1]
-                .split(',')
-                .map(str::trim)
-                .filter(|name| !name.is_empty())
-                .map(str::to_owned)
-                .collect::<Vec<_>>()
-        });
-    if let Some(list) = &only {
-        for name in list {
+    let only = if args.only.is_empty() {
+        None
+    } else {
+        for name in &args.only {
             if !NAMES.iter().any(|known| known.starts_with(name.as_str())) {
                 return Err(format!("unknown example {name:?}; try --list").into());
             }
         }
-    }
+        Some(args.only)
+    };
     let _ = ONLY.set(only);
 
-    let with_png = args.iter().any(|arg| arg == "--png");
+    let with_png = args.png;
     let font = load_font(None, Some("mplus-rounded"))?;
     std::fs::create_dir_all(OUT_DIR)?;
     if with_png {

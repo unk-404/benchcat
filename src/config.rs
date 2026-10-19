@@ -122,23 +122,26 @@ pub enum ConfigError {
         path: String,
         source: std::io::Error,
     },
-    #[error("invalid config {path}: {source}")]
-    Toml {
-        path: String,
-        source: toml::de::Error,
-    },
+    #[error("invalid config {path}: {message}")]
+    Invalid { path: String, message: String },
 }
 
 impl Config {
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
-        let text = std::fs::read_to_string(path).map_err(|source| ConfigError::Io {
-            path: path.display().to_string(),
-            source,
-        })?;
-        toml::from_str(&text).map_err(|source| ConfigError::Toml {
-            path: path.display().to_string(),
-            source,
-        })
+        let display = path.display().to_string();
+        let settings = config::Config::builder()
+            .add_source(config::File::from(path.to_path_buf()))
+            .build()
+            .map_err(|err| ConfigError::Invalid {
+                path: display.clone(),
+                message: err.to_string(),
+            })?;
+        settings
+            .try_deserialize()
+            .map_err(|err| ConfigError::Invalid {
+                path: display,
+                message: err.to_string(),
+            })
     }
 
     /// Load `path` when given, otherwise the conventional `bench-svg.toml`.

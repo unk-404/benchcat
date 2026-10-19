@@ -55,8 +55,23 @@ const SAMPLES: [(&str, Option<&str>, &str); 9] = [
     ("한국어", Some("Korean"), "하늘과 바람과 별과 시"),
 ];
 
+#[derive(clap::Parser)]
+#[command(about = "Render one type specimen per font in fonts/")]
+struct Args {
+    /// Only this font stem (prefix match)
+    #[arg(long)]
+    font: Option<String>,
+    /// Also rasterise PNG previews into target/previews
+    #[arg(long)]
+    png: bool,
+    /// Print the font stems and exit
+    #[arg(long)]
+    list: bool,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let with_png = std::env::args().any(|arg| arg == "--png");
+    let args = <Args as clap::Parser>::parse();
+    let with_png = args.png;
     std::fs::create_dir_all(OUT_DIR)?;
     if with_png {
         std::fs::create_dir_all(PREVIEW_DIR)?;
@@ -75,22 +90,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         return Err("no fonts found in ./fonts".into());
     }
 
-    let args: Vec<String> = std::env::args().skip(1).collect();
     let stem_of = |path: &PathBuf| {
         path.file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_else(|| "font".to_owned())
     };
-    if args.iter().any(|arg| arg == "--list") {
+    if args.list {
         for path in &fonts {
             println!("{}", stem_of(path));
         }
         return Ok(());
     }
-    let only = args
-        .windows(2)
-        .find(|pair| pair[0] == "--font" || pair[0] == "--only")
-        .map(|pair| pair[1].clone());
+    let only = args.font;
 
     for path in fonts {
         let stem = stem_of(&path);
