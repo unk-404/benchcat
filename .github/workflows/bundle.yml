@@ -25,9 +25,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  id-token: write
-  attestations: write
+  contents: read
+
+# PR runs are superseded by the next push; main runs must finish so releases are
+# never cancelled halfway.
+concurrency:
+  group: bundle-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   CARGO_TERM_COLOR: always
@@ -44,6 +48,7 @@ jobs:
   changes:
     name: detect binary changes
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
       binary: ${{ steps.diff.outputs.binary }}
       assets_only: ${{ steps.diff.outputs.assets_only }}
@@ -90,6 +95,7 @@ jobs:
 
   verify:
     name: verify (${{ matrix.os }})
+    timeout-minutes: 30
     needs: changes
     if: ${{ needs.changes.outputs.assets_only != 'true' }}
     strategy:
@@ -107,9 +113,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Format
+        if: runner.os == 'Linux'
         run: cargo fmt --all -- --check
 
       - name: Clippy
+        if: runner.os == 'Linux'
         run: cargo clippy --all-targets -- -D warnings
 
       - name: Test
@@ -126,21 +134,24 @@ jobs:
 
   identical-bytes:
     name: identical bytes across platforms
-    needs: verify
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    needs: verify
     steps:
       - uses: actions/download-artifact@v8
         with:
           pattern: bench-svg-*
-          merge-multiple: true
           path: artifacts
       - name: Compare
         shell: bash
         run: |
           set -euo pipefail
-          cd artifacts
-          sha256sum *.svg
-          files=(*.svg)
+          sha256sum artifacts/*/bench.svg
+          files=(artifacts/*/bench.svg)
+          if [[ ${#files[@]} -lt 2 ]]; then
+            echo "::error::expected one rendered card per OS, got ${#files[@]}"
+            exit 1
+          fi
           for file in "${files[@]:1}"; do
             cmp "${files[0]}" "$file"
           done
@@ -151,6 +162,9 @@ jobs:
   # the release.
   assets:
     name: generate assets
+    timeout-minutes: 30
+    permissions:
+      contents: write
     needs: [changes, verify, identical-bytes]
     if: ${{ !cancelled() && (needs.changes.outputs.assets_only == 'true' || (needs.verify.result == 'success' && needs.identical-bytes.result == 'success')) }}
     runs-on: ubuntu-24.04
@@ -216,7 +230,8 @@ jobs:
   # path does not need to exist yet.
   action:
     name: action (${{ matrix.os }})
-    needs: [changes, assets]
+    timeout-minutes: 30
+    needs: [changes, verify]
     if: ${{ needs.changes.outputs.assets_only != 'true' }}
     strategy:
       fail-fast: false
@@ -256,8 +271,13 @@ jobs:
         shell: bash
         env:
           GITHUB_ACTION_REPOSITORY: ${{ github.repository }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
+          if ! gh release view --repo "$GITHUB_ACTION_REPOSITORY" >/dev/null 2>&1; then
+            echo "no release in $GITHUB_ACTION_REPOSITORY yet; skipping"
+            exit 0
+          fi
           export INPUT_VERSION=latest
           export RUNNER_TOOL_CACHE="$RUNNER_TEMP/installer-check"
           bash scripts/install.sh
@@ -267,6 +287,11 @@ jobs:
   # Everything below only runs outside pull requests.
   build:
     name: build ${{ matrix.target }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
     needs: [changes, action]
     if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     strategy:
@@ -343,6 +368,9 @@ jobs:
 
   publish:
     name: publish
+    timeout-minutes: 30
+    permissions:
+      contents: write
     needs: [changes, build, assets]
     if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' }}
     runs-on: ubuntu-24.04
@@ -364,12 +392,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          tar -czf dist/bench-svg-assets.tar.gz -C . assets/examples assets/fonts
           cd dist
           sha256sum *.tar.gz > SHA256SUMS
+          sha256sum -c SHA256SUMS
           cat SHA256SUMS
           cd ..
-          tar -czf dist/bench-svg-assets.tar.gz -C . assets/examples assets/fonts
           ls -l dist
+
+      # A broken archive must never reach the release page.
+      - name: Smoke-test the archives
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/dist-check
+          tar -xzf dist/bench-svg-x86_64-unknown-linux-musl.tar.gz -C /tmp/dist-check
+          /tmp/dist-check/bench-svg --version
 
       # Date + commit, never a semantic version: `v2026.10.19-cd5cd87`.
       - name: Publish
@@ -402,8 +440,12 @@ jobs:
           tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
           export INPUT_VERSION="$tag"
           export RUNNER_TOOL_CACHE="$RUNNER_TEMP/bench-svg-smoke"
-          sleep 5
-          bash scripts/install.sh
+          installed=false
+          for attempt in 1 2 3 4 5; do
+            if bash scripts/install.sh; then installed=true; break; fi
+            sleep $((attempt * 5))
+          done
+          [[ "$installed" == true ]] || { echo "::error::installer did not succeed"; exit 1; }
           bin="$RUNNER_TOOL_CACHE/bench-svg/$tag-x86_64-unknown-linux-musl/bench-svg"
           "$bin" --version
           "$bin" render examples/bench.jsonl -o target/smoke.svg
