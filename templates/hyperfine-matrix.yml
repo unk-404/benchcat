@@ -12,10 +12,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-14]
+        os: [ubuntu-24.04, macos-14]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: taiki-e/install-action@v2
         with:
           tool: hyperfine
@@ -27,17 +27,17 @@ jobs:
             './target/release/app --help' \
             './target/release/app --version'
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: hyperfine-${{ matrix.os }}
           path: bench-*.json
 
   render:
     needs: measure
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: hyperfine-*
           merge-multiple: true
@@ -45,7 +45,7 @@ jobs:
       # One row per command, one bar per platform: the comparison layout.
       - uses: unk-404/benchmark_svg@v1
         with:
-          input: bench-ubuntu-latest.json bench-macos-14.json
+          input: bench-ubuntu-24.04.json bench-macos-14.json
           format: hyperfine
           out: assets/benchmarks.svg
           config: bench-svg.toml   # declare [[series]] there
