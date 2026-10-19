@@ -1,7 +1,4 @@
-//! SVG assembly. Text is emitted as glyph outlines so the viewer never needs the
-//! font and GitHub can never substitute a different typeface.
-
-use std::collections::HashMap;
+//! Card emission: rows, bars, values, legend and decorations.
 
 use crate::font::Font;
 use crate::layout::{
@@ -9,84 +6,9 @@ use crate::layout::{
     SECTION_SIZE, SERIES_VALUE_SIZE, SUBTITLE_SIZE, TITLE_SIZE, VALUE_SIZE,
 };
 
-/// Palette and decoration settings for one visual theme.
-pub struct Theme {
-    pub bg: [&'static str; 3],
-    pub title: &'static str,
-    pub subtitle: &'static str,
-    pub footer: &'static str,
-    pub dot_colors: &'static [&'static str],
-    pub series_colors: &'static [&'static str],
-    pub number: &'static str,
-    pub label: &'static str,
-    pub note: &'static str,
-    pub track: &'static str,
-    pub value: &'static str,
-    pub rme: &'static str,
-    pub card: &'static str,
-    pub card_opacity: f32,
-    pub shadow: &'static str,
-    pub shadow_opacity: f32,
-    pub star: &'static str,
-    pub sparkle: &'static str,
-    pub kaomoji: &'static str,
-}
-
-pub const PASTEL: Theme = Theme {
-    bg: ["#FFF8F0", "#FFF0F6", "#EEF7FF"],
-    title: "#4A3542",
-    subtitle: "#8A7080",
-    footer: "#A88A98",
-    dot_colors: &[
-        "#FFB7C5", "#A8E6CF", "#BDE0FE", "#FFD6A5", "#CDB4DB", "#FFC8DD", "#B9FBC0",
-    ],
-    series_colors: &["#F4A6BE", "#7FD1B9", "#8CB8F0", "#F2B984", "#B49BE0"],
-    number: "#6B4A5B",
-    label: "#4A3542",
-    note: "#9A7F8D",
-    track: "#F3E5EC",
-    value: "#4A3542",
-    rme: "#A88A98",
-    card: "#FFFFFF",
-    card_opacity: 0.78,
-    shadow: "#C084A0",
-    shadow_opacity: 0.18,
-    star: "#FFD166",
-    sparkle: "#F4A7B9",
-    kaomoji: "#B07C96",
-};
-
-pub const DARK: Theme = Theme {
-    bg: ["#241C26", "#1F1A2B", "#191F2B"],
-    title: "#FAEDF3",
-    subtitle: "#C9B4C2",
-    footer: "#9E8A99",
-    dot_colors: &[
-        "#FFB7C5", "#A8E6CF", "#BDE0FE", "#FFD6A5", "#CDB4DB", "#FFC8DD", "#B9FBC0",
-    ],
-    series_colors: &["#FF9EBC", "#7FE0C4", "#93C5FD", "#FFC98B", "#C4A9F0"],
-    number: "#3B2B36",
-    label: "#FAEDF3",
-    note: "#BBA3B2",
-    track: "#3A3140",
-    value: "#FAEDF3",
-    rme: "#B49EAC",
-    card: "#3A3243",
-    card_opacity: 1.0,
-    shadow: "#000000",
-    shadow_opacity: 0.45,
-    star: "#FFD166",
-    sparkle: "#F4A7B9",
-    kaomoji: "#E3B6C9",
-};
-
-pub fn theme(name: &str) -> Option<&'static Theme> {
-    match name {
-        "pastel" | "" => Some(&PASTEL),
-        "dark" | "pastel-dark" => Some(&DARK),
-        _ => None,
-    }
-}
+use super::atlas::{Anchor, Atlas, escape, push_text};
+use super::badge::number_cat;
+use super::theme::Theme;
 
 pub struct RenderInput<'a> {
     pub title: &'a str,
@@ -98,71 +20,6 @@ pub struct RenderInput<'a> {
 pub struct RenderOutput {
     pub svg: String,
     pub warnings: Vec<String>,
-}
-
-/// Every glyph used by the document, in first-use order, with its path.
-///
-/// Building the atlas before emitting lets outlines be extracted in parallel
-/// while the document itself stays in strict reading order.
-struct Atlas {
-    index: HashMap<u16, usize>,
-    paths: Vec<String>,
-}
-
-impl Atlas {
-    fn build(font: &Font, texts: &[(&str, f32)]) -> (Self, Vec<String>) {
-        let mut index: HashMap<u16, usize> = HashMap::new();
-        let mut gids: Vec<u16> = Vec::new();
-        let mut missing: Vec<char> = Vec::new();
-        for (text, _) in texts {
-            for ch in text.chars() {
-                match font.glyph(ch) {
-                    Some(glyph) => {
-                        if let std::collections::hash_map::Entry::Vacant(slot) =
-                            index.entry(glyph.gid)
-                        {
-                            slot.insert(gids.len());
-                            gids.push(glyph.gid);
-                        }
-                    }
-                    None => missing.push(ch),
-                }
-            }
-        }
-        missing.sort_unstable();
-        missing.dedup();
-        let paths = font.extract_paths(&gids);
-        let warnings = if missing.is_empty() {
-            Vec::new()
-        } else {
-            let chars: String = missing.iter().collect();
-            vec![format!("font {:?} has no glyph for {chars:?}", font.family)]
-        };
-        (Self { index, paths }, warnings)
-    }
-
-    fn defs(&self) -> String {
-        let mut out = String::with_capacity(self.paths.len() * 200);
-        out.push_str("<defs>");
-        for (id, path) in self.paths.iter().enumerate() {
-            if path.is_empty() {
-                continue;
-            }
-            out.push_str("<path id=\"g");
-            out.push_str(&id.to_string());
-            out.push_str("\" d=\"");
-            out.push_str(path);
-            out.push_str("\"/>");
-        }
-        out
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum Anchor {
-    Start,
-    Middle,
-    End,
 }
 
 pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme) -> RenderOutput {
@@ -508,106 +365,6 @@ fn decorations(plan: &LayoutPlan, theme: &Theme) -> String {
             "<circle cx=\"{cx:.0}\" cy=\"{cy:.0}\" r=\"{r:.0}\" fill=\"{}\" fill-opacity=\"0.55\"/>",
             theme.sparkle
         ));
-    }
-    out
-}
-
-/// The row number sits on a solid cat in profile: body, head, ears, tail and two
-/// legs. The body stretches with the digit count; everything else is fixed.
-/// The row number sits on a cat: body, head with merged ears, tail and one paw.
-/// Everything is drawn in a 30px-high design space and scaled to the badge, so
-/// the same shape works for a 33px badge and a 59px one.
-pub fn number_cat(svg: &mut String, pill: crate::layout::Rect, color: &str) {
-    let scale = pill.h / 30.0;
-    let w = pill.w / scale;
-    let bx = (w - 21.0).max(14.0);
-    svg.push_str(&format!(
-        "<g transform=\"translate({x:.2} {y:.2}) scale({scale:.4})\">",
-        x = pill.x,
-        y = pill.y
-    ));
-    // Tail.
-    svg.push_str(&format!(
-        "<path d=\"M 6 24 C 2 24 0 19 3 16\" fill=\"none\" stroke=\"{color}\" \
-         stroke-width=\"2.8\" stroke-linecap=\"round\"/>"
-    ));
-    // Body: flat back, a small dip, then a neck that climbs into the head.
-    svg.push_str(&format!(
-        "<path d=\"M 6 27 C 2 27 1 22 1 18 C 1 12 7 10 14 10 L {bx:.2} 10 \
-         C {c1:.2} 10 {c2:.2} 8.6 {e:.2} 8 L {r:.2} 20 L {r:.2} 27 Z\" fill=\"{color}\"/>",
-        c1 = bx + (w - 10.0 - bx) * 0.45,
-        c2 = w - 13.0,
-        e = w - 10.0,
-        r = w - 4.0,
-    ));
-    // Head with merged ears, drawn at 0.9 of the reference outline.
-    svg.push_str(&format!(
-        "<g transform=\"translate({hx:.2} 10) scale(0.9) translate(-35 -10)\">\
-         <path d=\"M 29 5.5 L 28 -0.5 L 34 3.5 L 40.5 0 L 41 5.5 C 43 8.5 43 15 38.5 16.5 \
-         C 34 18 30 17 28.5 12 C 27.5 8.5 28 6.5 29 5.5 Z\" fill=\"{color}\"/></g>",
-        hx = w - 9.0
-    ));
-    svg.push_str("</g>");
-}
-
-#[allow(clippy::too_many_arguments)]
-fn push_text(
-    body: &mut String,
-    atlas: &Atlas,
-    font: &Font,
-    text: &str,
-    x: f32,
-    baseline: f32,
-    size: f32,
-    fill: &str,
-    anchor: Anchor,
-) {
-    if text.is_empty() {
-        return;
-    }
-    let width = font.text_width(text, size);
-    let start = match anchor {
-        Anchor::Start => x,
-        Anchor::Middle => x - width / 2.0,
-        Anchor::End => x - width,
-    };
-    let scale = size / font.units_per_em;
-    body.push_str(&format!(
-        "<g transform=\"translate({x:.2} {y:.2}) scale({s:.5} -{s:.5})\" fill=\"{fill}\">",
-        x = start,
-        y = baseline,
-        s = scale,
-    ));
-    let mut cursor: f32 = 0.0;
-    for ch in text.chars() {
-        match font.glyph(ch) {
-            Some(glyph) => {
-                if let Some(id) = atlas.index.get(&glyph.gid) {
-                    body.push_str("<use href=\"#g");
-                    body.push_str(&id.to_string());
-                    body.push_str("\" x=\"");
-                    body.push_str(&format!("{cursor:.1}"));
-                    body.push_str("\"/>");
-                }
-                cursor += glyph.advance;
-            }
-            None => cursor += font.advance_units(ch) + font.units_per_em * 0.5,
-        }
-    }
-    body.push_str("</g>");
-}
-
-fn escape(text: &str) -> String {
-    let mut out = String::with_capacity(text.len());
-    for ch in text.chars() {
-        match ch {
-            '&' => out.push_str("&amp;"),
-            '<' => out.push_str("&lt;"),
-            '>' => out.push_str("&gt;"),
-            '"' => out.push_str("&quot;"),
-            '\'' => out.push_str("&apos;"),
-            _ => out.push(ch),
-        }
     }
     out
 }
