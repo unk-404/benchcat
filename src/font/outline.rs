@@ -11,13 +11,13 @@ use super::{Font, GLYPH_CHUNK, GlyphBounds, PARALLEL_GLYPH_THRESHOLD};
 impl Font {
     /// SVG path for one glyph, cached. Use [`Font::extract_paths`] in bulk.
     pub fn path(&self, gid: u16) -> String {
-        if let Some(path) = self.paths.lock().expect("font cache").get(&gid) {
+        if let Some(path) = self.paths.read().expect("font cache").get(&gid) {
             return path.clone();
         }
         let font = self.font();
         let path = outline_path(&font, gid);
         self.paths
-            .lock()
+            .write()
             .expect("font cache")
             .insert(gid, path.clone());
         path
@@ -25,7 +25,7 @@ impl Font {
 
     /// Outline bounds in font units, cached per glyph.
     pub(super) fn glyph_bounds(&self, gid: u16) -> Option<GlyphBounds> {
-        if let Some(cached) = self.bounds.lock().expect("font bounds").get(&gid) {
+        if let Some(cached) = self.bounds.read().expect("font bounds").get(&gid) {
             return *cached;
         }
         let font = self.font();
@@ -39,7 +39,10 @@ impl Font {
                 pen.bounding_box()
                     .map(|bounds| (bounds.x_min, bounds.y_min, bounds.x_max, bounds.y_max))
             });
-        self.bounds.lock().expect("font bounds").insert(gid, bounds);
+        self.bounds
+            .write()
+            .expect("font bounds")
+            .insert(gid, bounds);
         bounds
     }
 

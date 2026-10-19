@@ -2,7 +2,7 @@
 
 use crate::font::Font;
 use crate::layout::{
-    FOOTER_SIZE, LABEL_SIZE, LEGEND_SIZE, LayoutPlan, NOTE_SIZE, NUMBER_SIZE, RME_SIZE,
+    FOOTER_SIZE, LABEL_SIZE, LEGEND_SIZE, LayoutPlan, NOTE_SIZE, NUMBER_SIZE, RME_SIZE, RowBox,
     SECTION_SIZE, SERIES_VALUE_SIZE, SUBTITLE_SIZE, TITLE_SIZE, VALUE_SIZE,
 };
 
@@ -178,158 +178,10 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
         );
     }
 
+    // Emission is memory-bound and shares the font caches, so it stays
+    // sequential; rayon is used while loading and extracting outlines.
     for (index, row) in plan.rows.iter().enumerate() {
-        let card = row.card;
-        out.open("g").close();
-        out.open("title")
-            .close()
-            .text(&row.row.tooltip)
-            .end("title");
-        out.open("rect")
-            .attr_num("x", card.x, 1)
-            .attr_num("y", card.y, 1)
-            .attr_num("width", card.w, 1)
-            .attr_num("height", card.h, 1)
-            .attr_raw("rx", "12")
-            .attr_raw("fill", theme.card)
-            .attr_fmt("fill-opacity", format_args!("{}", theme.card_opacity))
-            .empty();
-
-        let accent = theme.dot_colors[index % theme.dot_colors.len()];
-        draw_cat(&mut out, row.number_pill, accent);
-        // Centre on the glyph ink, not on the em box, so every index sits
-        // optically centred however many digits it has.
-        let number_ink = font.text_ink(&numbers[index], NUMBER_SIZE);
-        push_text(
-            &mut out,
-            &atlas,
-            font,
-            &numbers[index],
-            row.number_center.0 - number_ink.center_x(),
-            row.number_center.1 + number_ink.center_up(),
-            NUMBER_SIZE,
-            theme.number,
-            Anchor::Start,
-        );
-
-        // Stack label and note by their ink boxes, not their line boxes: the
-        // font's full ascent/descent would push the pair against the card edge
-        // and leave a visible gap between the two lines.
-        let label_ink = font.text_ink(&row.row.label, LABEL_SIZE);
-        let (label_baseline, note_baseline) = match row.row.note.as_deref() {
-            Some(note) => {
-                let note_ink = font.text_ink(note, NOTE_SIZE);
-                let gap = (LABEL_SIZE * 0.36).max(4.0);
-                let total =
-                    (label_ink.top - label_ink.bottom) + gap + (note_ink.top - note_ink.bottom);
-                let top = card.y + (card.h - total) / 2.0;
-                let label_baseline = top + label_ink.top;
-                let note_baseline = label_baseline - label_ink.bottom + gap + note_ink.top;
-                (label_baseline, Some(note_baseline))
-            }
-            None => (card.y + card.h / 2.0 + label_ink.center_up(), None),
-        };
-        push_text(
-            &mut out,
-            &atlas,
-            font,
-            &row.row.label,
-            row.label.x,
-            label_baseline,
-            LABEL_SIZE,
-            theme.label,
-            Anchor::Start,
-        );
-        if let (Some(note), Some(note_baseline)) = (row.row.note.as_deref(), note_baseline) {
-            push_text(
-                &mut out,
-                &atlas,
-                font,
-                note,
-                row.label.x,
-                note_baseline,
-                NOTE_SIZE,
-                theme.note,
-                Anchor::Start,
-            );
-        }
-
-        for bar in &row.bars {
-            let series = bar.series;
-            let color = if plan.multi_series {
-                plan.legend
-                    .get(series)
-                    .map(|item| item.color.as_str())
-                    .unwrap_or(accent)
-            } else {
-                accent
-            };
-            out.open("rect")
-                .attr_num("x", bar.track.x, 1)
-                .attr_num("y", bar.track.y, 1)
-                .attr_num("width", bar.track.w, 1)
-                .attr_num("height", bar.track.h, 1)
-                .attr_raw("rx", "3")
-                .attr_raw("fill", theme.track)
-                .empty();
-            out.open("rect")
-                .attr_num("x", bar.fill.x, 1)
-                .attr_num("y", bar.fill.y, 1)
-                .attr_num("width", bar.fill.w, 1)
-                .attr_num("height", bar.fill.h, 1)
-                .attr_raw("rx", "3")
-                .attr_raw("fill", color)
-                .empty();
-            if plan.multi_series
-                && let Some(value) = row.row.values.get(series)
-            {
-                let baseline =
-                    bar.track.y + bar.track.h / 2.0 + font.ascent_px(SERIES_VALUE_SIZE) / 2.0 - 1.5;
-                push_text(
-                    &mut out,
-                    &atlas,
-                    font,
-                    &value.text,
-                    row.value.x,
-                    baseline,
-                    SERIES_VALUE_SIZE,
-                    theme.value,
-                    Anchor::Start,
-                );
-            }
-        }
-
-        if !plan.multi_series {
-            if let Some(value) = row.row.values.first() {
-                let ink = font.text_ink(&value.text, VALUE_SIZE);
-                push_text(
-                    &mut out,
-                    &atlas,
-                    font,
-                    &value.text,
-                    row.value.x,
-                    card.y + card.h / 2.0 + ink.center_up(),
-                    VALUE_SIZE,
-                    theme.value,
-                    Anchor::Start,
-                );
-            }
-            if let Some(rme) = row.row.rme_text.as_deref() {
-                let ink = font.text_ink(rme, RME_SIZE);
-                push_text(
-                    &mut out,
-                    &atlas,
-                    font,
-                    rme,
-                    row.rme.x + row.rme.w - 14.0,
-                    card.y + card.h / 2.0 + ink.center_up(),
-                    RME_SIZE,
-                    theme.rme,
-                    Anchor::End,
-                );
-            }
-        }
-        out.end("g");
+        emit_row(&mut out, plan, row, index, font, &atlas, theme, &numbers);
     }
 
     let footer_baseline = plan.footer.y + font.ascent_px(FOOTER_SIZE);
@@ -368,6 +220,170 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
         svg: out.finish(),
         warnings,
     }
+}
+
+/// One card: tooltip, cat badge, label, bars, values.
+#[allow(clippy::too_many_arguments)]
+fn emit_row(
+    out: &mut Writer,
+    plan: &LayoutPlan,
+    row: &RowBox,
+    index: usize,
+    font: &Font,
+    atlas: &Atlas,
+    theme: &Theme,
+    numbers: &[String],
+) {
+    let card = row.card;
+    out.open("g").close();
+    out.open("title")
+        .close()
+        .text(&row.row.tooltip)
+        .end("title");
+    out.open("rect")
+        .attr_num("x", card.x, 1)
+        .attr_num("y", card.y, 1)
+        .attr_num("width", card.w, 1)
+        .attr_num("height", card.h, 1)
+        .attr_raw("rx", "12")
+        .attr_raw("fill", theme.card)
+        .attr_fmt("fill-opacity", format_args!("{}", theme.card_opacity))
+        .empty();
+
+    let accent = theme.dot_colors[index % theme.dot_colors.len()];
+    draw_cat(out, row.number_pill, accent);
+    // Centre on the glyph ink, not on the em box, so every index sits
+    // optically centred however many digits it has.
+    let number_ink = font.text_ink(&numbers[index], NUMBER_SIZE);
+    push_text(
+        out,
+        atlas,
+        font,
+        &numbers[index],
+        row.number_center.0 - number_ink.center_x(),
+        row.number_center.1 + number_ink.center_up(),
+        NUMBER_SIZE,
+        theme.number,
+        Anchor::Start,
+    );
+
+    // Stack label and note by their ink boxes, not their line boxes: the
+    // font's full ascent/descent would push the pair against the card edge
+    // and leave a visible gap between the two lines.
+    let label_ink = font.text_ink(&row.row.label, LABEL_SIZE);
+    let (label_baseline, note_baseline) = match row.row.note.as_deref() {
+        Some(note) => {
+            let note_ink = font.text_ink(note, NOTE_SIZE);
+            let gap = (LABEL_SIZE * 0.36).max(4.0);
+            let total = (label_ink.top - label_ink.bottom) + gap + (note_ink.top - note_ink.bottom);
+            let top = card.y + (card.h - total) / 2.0;
+            let label_baseline = top + label_ink.top;
+            let note_baseline = label_baseline - label_ink.bottom + gap + note_ink.top;
+            (label_baseline, Some(note_baseline))
+        }
+        None => (card.y + card.h / 2.0 + label_ink.center_up(), None),
+    };
+    push_text(
+        out,
+        atlas,
+        font,
+        &row.row.label,
+        row.label.x,
+        label_baseline,
+        LABEL_SIZE,
+        theme.label,
+        Anchor::Start,
+    );
+    if let (Some(note), Some(note_baseline)) = (row.row.note.as_deref(), note_baseline) {
+        push_text(
+            out,
+            atlas,
+            font,
+            note,
+            row.label.x,
+            note_baseline,
+            NOTE_SIZE,
+            theme.note,
+            Anchor::Start,
+        );
+    }
+
+    for bar in &row.bars {
+        let series = bar.series;
+        let color = if plan.multi_series {
+            plan.legend
+                .get(series)
+                .map(|item| item.color.as_str())
+                .unwrap_or(accent)
+        } else {
+            accent
+        };
+        out.open("rect")
+            .attr_num("x", bar.track.x, 1)
+            .attr_num("y", bar.track.y, 1)
+            .attr_num("width", bar.track.w, 1)
+            .attr_num("height", bar.track.h, 1)
+            .attr_raw("rx", "3")
+            .attr_raw("fill", theme.track)
+            .empty();
+        out.open("rect")
+            .attr_num("x", bar.fill.x, 1)
+            .attr_num("y", bar.fill.y, 1)
+            .attr_num("width", bar.fill.w, 1)
+            .attr_num("height", bar.fill.h, 1)
+            .attr_raw("rx", "3")
+            .attr_raw("fill", color)
+            .empty();
+        if plan.multi_series
+            && let Some(value) = row.row.values.get(series)
+        {
+            let baseline =
+                bar.track.y + bar.track.h / 2.0 + font.ascent_px(SERIES_VALUE_SIZE) / 2.0 - 1.5;
+            push_text(
+                out,
+                atlas,
+                font,
+                &value.text,
+                row.value.x,
+                baseline,
+                SERIES_VALUE_SIZE,
+                theme.value,
+                Anchor::Start,
+            );
+        }
+    }
+
+    if !plan.multi_series {
+        if let Some(value) = row.row.values.first() {
+            let ink = font.text_ink(&value.text, VALUE_SIZE);
+            push_text(
+                out,
+                atlas,
+                font,
+                &value.text,
+                row.value.x,
+                card.y + card.h / 2.0 + ink.center_up(),
+                VALUE_SIZE,
+                theme.value,
+                Anchor::Start,
+            );
+        }
+        if let Some(rme) = row.row.rme_text.as_deref() {
+            let ink = font.text_ink(rme, RME_SIZE);
+            push_text(
+                out,
+                atlas,
+                font,
+                rme,
+                row.rme.x + row.rme.w - 14.0,
+                card.y + card.h / 2.0 + ink.center_up(),
+                RME_SIZE,
+                theme.rme,
+                Anchor::End,
+            );
+        }
+    }
+    out.end("g");
 }
 
 /// Pastel stars and dots, positioned relative to the card size.

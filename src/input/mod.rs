@@ -6,6 +6,8 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use rayon::prelude::*;
+
 use crate::model::{Benchmark, Meta, json_scalar};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -110,13 +112,23 @@ pub fn load(paths: &[PathBuf], format: Format) -> Result<Loaded, InputError> {
         }
     }
 
-    for file in &files {
-        let text = std::fs::read_to_string(file).map_err(|source| InputError::Io {
-            path: file.display().to_string(),
-            source,
-        })?;
-        let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
-        let parsed = parse_file(text, file, format)?;
+    let total_bytes: u64 = files
+        .iter()
+        .filter_map(|file| std::fs::metadata(file).ok())
+        .map(|meta| meta.len())
+        .sum();
+    let parsed: Vec<Result<Loaded, InputError>> = if files.len() >= 2 && total_bytes >= 128 * 1024 {
+        // Files are independent; merging below keeps the argv order, so the
+        // output is unchanged.
+        files
+            .par_iter()
+            .map(|file| parse_path(file, format))
+            .collect()
+    } else {
+        files.iter().map(|file| parse_path(file, format)).collect()
+    };
+    for (file, parsed) in files.iter().zip(parsed) {
+        let parsed = parsed?;
         if loaded.meta.tool.is_none() {
             loaded.meta = parsed.meta;
         }
@@ -135,6 +147,15 @@ pub fn load(paths: &[PathBuf], format: Format) -> Result<Loaded, InputError> {
         ));
     }
     Ok(loaded)
+}
+
+fn parse_path(file: &Path, format: Format) -> Result<Loaded, InputError> {
+    let text = std::fs::read_to_string(file).map_err(|source| InputError::Io {
+        path: file.display().to_string(),
+        source,
+    })?;
+    let text = text.strip_prefix('\u{feff}').unwrap_or(&text);
+    parse_file(text, file, format)
 }
 
 /// True when `path` looks like a criterion output tree, i.e. it contains at

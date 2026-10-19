@@ -1,5 +1,6 @@
 //! Document parsers for canonical JSON, JSONL, benchmark_test and CSV.
 
+use rayon::prelude::*;
 use serde_json::Value;
 
 use crate::model::{Benchmark, Direction, Report, Stats};
@@ -63,44 +64,107 @@ pub(super) fn parse_json(text: &str, name: &str) -> Result<Loaded, InputError> {
     Ok(loaded)
 }
 
+const PARALLEL_LINES: usize = 2_000;
+const LINE_CHUNK: usize = 1_024;
+
 pub(super) fn parse_jsonl(text: &str, name: &str) -> Result<Loaded, InputError> {
-    let mut loaded = Loaded::default();
-    for (index, line) in text.lines().enumerate() {
-        let line = line.trim();
-        if !line.starts_with('{') {
-            continue; // benchmark_test interleaves progress output with JSON.
+    let lines: Vec<&str> = text.lines().collect();
+    let benchmarks = if lines.len() >= PARALLEL_LINES {
+        // Long files dominate load time; parse line blocks in parallel and keep
+        // block/line order so the result is identical to the sequential pass.
+        let chunks: Result<Vec<Vec<Benchmark>>, InputError> = lines
+            .par_chunks(LINE_CHUNK)
+            .enumerate()
+            .map(|(chunk, block)| {
+                let mut out = Vec::with_capacity(block.len());
+                for (offset, line) in block.iter().enumerate() {
+                    let index = chunk * LINE_CHUNK + offset + 1;
+                    if let Some(benchmark) = jsonl_line(line, name, index)? {
+                        out.push(benchmark);
+                    }
+                }
+                Ok(out)
+            })
+            .collect();
+        chunks?.into_iter().flatten().collect()
+    } else {
+        let mut out = Vec::with_capacity(lines.len());
+        for (index, line) in lines.iter().enumerate() {
+            if let Some(benchmark) = jsonl_line(line, name, index + 1)? {
+                out.push(benchmark);
+            }
         }
-        let value: Value = serde_json::from_str(line).map_err(|err| InputError::Parse {
-            path: format!("{name}:{}", index + 1),
-            format: "jsonl",
-            message: err.to_string(),
-        })?;
-        loaded
-            .benchmarks
-            .push(benchmark_or_test(&value, name, index + 1)?);
+        out
+    };
+    Ok(Loaded {
+        benchmarks,
+        ..Loaded::default()
+    })
+}
+
+fn jsonl_line(line: &str, name: &str, index: usize) -> Result<Option<Benchmark>, InputError> {
+    let line = line.trim();
+    if !line.starts_with('{') {
+        return Ok(None); // benchmark_test interleaves progress output with JSON.
     }
-    Ok(loaded)
+    let value: Value = serde_json::from_str(line).map_err(|err| InputError::Parse {
+        path: format!("{name}:{index}"),
+        format: "jsonl",
+        message: err.to_string(),
+    })?;
+    benchmark_or_test(&value, name, index).map(Some)
 }
 
 pub(super) fn parse_benchmark_test(text: &str, name: &str) -> Result<Loaded, InputError> {
-    let mut loaded = Loaded::default();
-    for (index, line) in text.lines().enumerate() {
-        let line = line.trim();
-        if !line.starts_with('{') {
-            continue;
+    let lines: Vec<&str> = text.lines().collect();
+    let benchmarks = if lines.len() >= PARALLEL_LINES {
+        let chunks: Result<Vec<Vec<Benchmark>>, InputError> = lines
+            .par_chunks(LINE_CHUNK)
+            .enumerate()
+            .map(|(chunk, block)| {
+                let mut out = Vec::with_capacity(block.len());
+                for (offset, line) in block.iter().enumerate() {
+                    let index = chunk * LINE_CHUNK + offset + 1;
+                    if let Some(benchmark) = benchmark_test_line(line, name, index)? {
+                        out.push(benchmark);
+                    }
+                }
+                Ok(out)
+            })
+            .collect();
+        chunks?.into_iter().flatten().collect()
+    } else {
+        let mut out = Vec::with_capacity(lines.len());
+        for (index, line) in lines.iter().enumerate() {
+            if let Some(benchmark) = benchmark_test_line(line, name, index + 1)? {
+                out.push(benchmark);
+            }
         }
-        let value: Value = serde_json::from_str(line).map_err(|err| InputError::Parse {
-            path: format!("{name}:{}", index + 1),
-            format: "benchmark_test",
-            message: err.to_string(),
-        })?;
-        loaded.benchmarks.push(benchmark_test_entry(
-            &value,
-            &format!("{name}:{}", index + 1),
-        )?);
-    }
+        out
+    };
+    let mut loaded = Loaded {
+        benchmarks,
+        ..Loaded::default()
+    };
     loaded.meta.tool = Some("benchmark_test".to_owned());
     Ok(loaded)
+}
+
+fn benchmark_test_line(
+    line: &str,
+    name: &str,
+    index: usize,
+) -> Result<Option<Benchmark>, InputError> {
+    let line = line.trim();
+    if !line.starts_with('{') {
+        return Ok(None);
+    }
+    let value: Value = serde_json::from_str(line).map_err(|err| InputError::Parse {
+        path: format!("{name}:{index}"),
+        format: "benchmark_test",
+        message: err.to_string(),
+    })?;
+    benchmark_test_entry(&value, &format!("{name}:{index}")).map(Some)
 }
 
 fn benchmark_or_test(value: &Value, name: &str, line: usize) -> Result<Benchmark, InputError> {

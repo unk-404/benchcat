@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::RwLock;
 
 use skrifa::instance::{LocationRef, Size};
 use skrifa::{FontRef, MetadataProvider};
@@ -76,8 +76,8 @@ pub struct Font {
     /// Number of glyphs in the face, from the font's own metrics.
     pub glyph_count: u16,
     glyphs: HashMap<char, Glyph>,
-    paths: Mutex<HashMap<u16, String>>,
-    bounds: Mutex<HashMap<u16, Option<GlyphBounds>>>,
+    paths: RwLock<HashMap<u16, String>>,
+    bounds: RwLock<HashMap<u16, Option<GlyphBounds>>>,
 }
 
 impl std::fmt::Debug for Font {
@@ -134,8 +134,8 @@ impl Font {
             leading: metrics.leading,
             glyph_count: metrics.glyph_count,
             glyphs,
-            paths: Mutex::new(HashMap::new()),
-            bounds: Mutex::new(HashMap::new()),
+            paths: RwLock::new(HashMap::new()),
+            bounds: RwLock::new(HashMap::new()),
         })
     }
 

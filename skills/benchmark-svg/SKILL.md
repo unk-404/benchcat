@@ -22,7 +22,8 @@ Renders benchmark output as one deterministic SVG card, inside your CI.
 ```
 
 That is the whole integration. The action writes the SVG where `out` points and exposes `svg` and
-`bytes` outputs.
+`bytes` outputs. It reads the checked-out workspace, so run `actions/checkout` first; `input` and `out`
+are relative to the repository root.
 
 ## Do not
 
@@ -132,8 +133,10 @@ Canonical shape (`bench-svg/report@1`):
 ```
 
 Units are dimensional: `B/s`…`TiB/s`, `ops/s`/`IOPS`, `ns/op`…`s/op`, `instr`, `×`; unknown spellings
-render verbatim. Bars are scaled inside one unit family and `direction: "lower"` inverts the bar so
-longer always means better.
+render verbatim. `direction: "lower"` inverts the bar so longer always means better.
+
+A single-source card scales each bar with the log curve against the best row of the same unit family;
+`bar_scale` and `bar_curve` do not apply there.
 
 ## Multi-source comparison
 
@@ -154,14 +157,18 @@ input = "bench-linux.jsonl"
 label = "Windows x64"
 input = "bench-windows.jsonl"
 color = "#8CB8F0"
+format = "jsonl"       # optional per-source format override
 ```
 
 - `bar_scale = "row"`: bars are relative to the row's own best value; `"source"`: each source against
   its own best across rows; `"global"`: one reference per unit family for the whole card.
-- `bar_curve = "linear"` keeps ratios honest; `"log"` compresses wide ranges. Single-source cards keep
-  the log scale against the best row of the unit family.
-- `missing = "skip"` draws no bar for a source absent from a row, and the row shrinks; `"placeholder"`
-  keeps the slot and prints `—`.
+- `bar_curve = "linear"`: proportional bars (default in a comparison card); `"log"` compresses wide
+  ranges.
+- `missing = "skip"`: a source absent from a row draws no bar, and the **row height follows the bars it
+  actually draws**: one bar means the row is exactly `card_height` (the single-source height); more bars
+  grow with the stack. `"placeholder"` keeps the slot with an empty track and `—`, at the full row height.
+- Bar thickness is 6 px inside a comparison card (even for a lone bar) and 10 px in a single-source
+  card.
 
 Rows are the union of ids across sources.
 
@@ -200,6 +207,27 @@ Row rules: `id` exact or `match` regex; captures become `$1`… in `label`, `not
 supports `+ - * /`, parentheses and `min/max/abs/log10/sqrt/round`; `group` draws a section heading;
 unmatched rows append unless `only_matched = true`.
 
+### `[render]` keys
+
+| key | default | meaning |
+|---|---|---|
+| `title` / `subtitle` / `footer` | derived | heading, provenance line, footer |
+| `width` | `920` | canvas width in px |
+| `min_height` | `0` | minimum card height; the footer stays pinned to the bottom |
+| `card_height` | `42` | single-source row height; comparison rows may grow |
+| `row_gap` | `10` | gap between cards |
+| `padding` | `22` | inner page padding |
+| `theme` | `"pastel"` | `pastel` or `dark` |
+| `kaomoji` | `"(◕‿◕)♡"` | footer decoration; empty string removes it |
+| `max_rows` | none | render only the first N rows |
+| `only_matched` | `false` | drop rows no `[[row]]` rule matched |
+| `bar_scale` | `"row"` | comparison cards only |
+| `bar_curve` | `"linear"` | comparison cards only |
+| `missing` | `"skip"` | comparison cards only |
+
+`[font] family` selects a file stem in `./fonts`; without it, `mplus-rounded` is preferred and only then
+the first font on disk.
+
 Each `[render]` key can be overridden from the environment: `BENCH_SVG_RENDER__TITLE`,
 `BENCH_SVG_RENDER__WIDTH`, `BENCH_SVG_FONT__FAMILY` (double underscore nests).
 
@@ -237,10 +265,16 @@ OFL catalogue under `fonts/`, each with a type specimen in `assets/fonts/`.
 
 ```bash
 cargo install --git https://github.com/unk-404/benchmark_svg --branch master
+bench-svg formats
 bench-svg render target/criterion -o /tmp/bench.svg --format criterion
+bench-svg render a.jsonl b.jsonl \
+  --series "Linux=a.jsonl" --series "Windows=b.jsonl" \
+  --config bench-svg.toml --font quicksand --stdout
 ```
 
-Reproduce a CI failure or check a config before committing. CI itself uses the action step.
+`--series LABEL=PATH` adds a comparison source, `--stdout` writes the SVG to stdout, and `--font` /
+`--font-file` override `[font]`. Reproduce a CI failure or check a config before committing; CI itself
+uses the action step.
 
 ## What it does not do
 
