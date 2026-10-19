@@ -21,9 +21,18 @@ pub fn resolve_font(explicit: Option<&Path>, family: Option<&str>) -> Result<Pat
     }
     dirs.push(PathBuf::from("fonts"));
     for dir in dirs {
+        // An explicit family must match exactly; without one, prefer the
+        // documented default before falling back to whatever is on disk.
         if let Some(name) = family {
             for ext in ["ttf", "otf"] {
                 let candidate = dir.join(format!("{name}.{ext}"));
+                if candidate.is_file() {
+                    return Ok(candidate);
+                }
+            }
+        } else {
+            for ext in ["ttf", "otf"] {
+                let candidate = dir.join(format!("mplus-rounded.{ext}"));
                 if candidate.is_file() {
                     return Ok(candidate);
                 }

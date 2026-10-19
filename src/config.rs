@@ -94,6 +94,47 @@ pub struct Render {
     pub max_rows: Option<usize>,
     /// Drop benchmarks that no `[[row]]` rule matched.
     pub only_matched: bool,
+    /// Multi-source bar reference: the row (default), each source, or the whole card.
+    pub bar_scale: BarScale,
+    /// Multi-source bar shape: `linear` keeps ratios honest, `log` compresses ranges.
+    pub bar_curve: BarCurve,
+    /// Multi-source rows that lack a source: skip the entry, or draw an empty track.
+    pub missing: Missing,
+}
+
+/// Where a multi-source row's bars take their 100% from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum BarScale {
+    /// Best value inside the row (default).
+    #[default]
+    Row,
+    /// Best value of each source across all rows.
+    Source,
+    /// Best value of the whole card per unit family.
+    Global,
+}
+
+/// How a value becomes a bar length.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum BarCurve {
+    /// `value / reference`; differences stay visible.
+    #[default]
+    Linear,
+    /// `log1p(value) / log1p(reference)`; compresses wide ranges.
+    Log,
+}
+
+/// Rendering choice for a source absent from a row.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum Missing {
+    /// Draw nothing; the row shrinks to its present bars.
+    #[default]
+    Skip,
+    /// Draw an empty track and an em dash.
+    Placeholder,
 }
 
 impl Default for Render {
@@ -111,6 +152,9 @@ impl Default for Render {
             kaomoji: "(◕‿◕)♡".to_owned(),
             max_rows: None,
             only_matched: false,
+            bar_scale: BarScale::Row,
+            bar_curve: BarCurve::Linear,
+            missing: Missing::Skip,
         }
     }
 }
@@ -129,8 +173,18 @@ pub enum ConfigError {
 impl Config {
     pub fn load(path: &Path) -> Result<Self, ConfigError> {
         let display = path.display().to_string();
+        // Layered sources: the TOML file, then `BENCH_SVG_*` environment
+        // overrides (`BENCH_SVG_RENDER__TITLE`, `BENCH_SVG_FONT__FAMILY`, ...).
+        // Only the `toml` feature is enabled: json/yaml/ini/ron/json5, async
+        // and case conversion are not used by this tool.
         let settings = config::Config::builder()
             .add_source(config::File::from(path.to_path_buf()))
+            .add_source(
+                config::Environment::with_prefix("BENCH_SVG")
+                    .prefix_separator("_")
+                    .separator("__")
+                    .try_parsing(true),
+            )
             .build()
             .map_err(|err| ConfigError::Invalid {
                 path: display.clone(),

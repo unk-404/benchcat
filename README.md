@@ -128,6 +128,9 @@ min_height = 0
 theme = "pastel"          # or "dark"
 kaomoji = "(◕‿◕)♡"
 max_rows = 12
+bar_scale = "row"          # row | source | global (multi-source only)
+bar_curve = "linear"       # linear | log (multi-source only)
+missing = "skip"           # skip | placeholder (multi-source only)
 
 [[series]]
 label = "Linux x64"
@@ -141,7 +144,13 @@ color = "#8CB8F0"
 ```
 
 Two or more `[[series]]` switch to the comparison layout: one row per operation, one bar per source, a
-legend, and one value per bar. Rows missing from a source render as an empty track and `—`.
+legend, and one value per bar. Bars are linear and scaled to the row's own best value by default
+(`bar_scale = "row"`); `bar_curve = "log"` compresses wide ranges, `bar_scale = "source"` compares each
+source against its own best across rows, and `bar_scale = "global"` uses one reference per unit family
+for the whole card. Single-source cards keep the log scale against the best row of the unit family.
+
+When a row is missing a source, `missing = "skip"` (default) draws no bar and the row is shorter;
+`missing = "placeholder"` keeps the slot and prints `—`.
 
 ### Row mapping
 
@@ -215,11 +224,15 @@ cat, and keep the row for a script with no coverage at all.
 | [`11-hyperfine.svg`](assets/examples/11-hyperfine.svg) | `--format hyperfine` |
 | [`12-rows.svg`](assets/examples/12-rows.svg) | `[[row]]` mapping |
 | [`13-sections.svg`](assets/examples/13-sections.svg) | `group` fields become section headings |
+| [`14-missing.svg`](assets/examples/14-missing.svg) | a missing source is skipped and the row shrinks |
+| [`15-bar-scale.svg`](assets/examples/15-bar-scale.svg) | `bar_scale = "global"` |
 
 ```bash
-cargo run --example gallery            # SVGs into assets/examples/
-cargo run --example gallery -- --png   # plus PNG previews in target/previews/
-cargo run --example specimen           # one specimen per font in fonts/
+cargo run --example gallery                      # SVGs into assets/examples/
+cargo run --example gallery -- --only 14 --png    # one example, plus a PNG preview
+cargo run --example gallery -- --list             # example names
+cargo run --example specimen -- --font quicksand   # one specimen
+cargo run --example specimen -- --list            # font stems
 ```
 
 ## GitHub Action
@@ -259,9 +272,10 @@ Ready-made workflows are in [`templates/`](templates/):
 
 ## For agents
 
-[`skills/benchmark-svg/SKILL.md`](skills/benchmark-svg/SKILL.md) is a self-contained integration guide:
-formats, config, action wiring, verification commands and failure modes. Read that instead of this
-file when automating the tool.
+- [`skills/benchmark-svg/SKILL.md`](skills/benchmark-svg/SKILL.md) — integration: one action step,
+  inputs, formats, config, verification, failure modes.
+- [`skills/benchmark-svg-dev/SKILL.md`](skills/benchmark-svg-dev/SKILL.md) — development: module map,
+  layout engine, determinism rules, fonts, gallery and release workflow.
 
 ## Releases
 

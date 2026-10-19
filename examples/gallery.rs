@@ -36,6 +36,8 @@ const NAMES: &[&str] = &[
     "11-hyperfine",
     "12-rows",
     "13-sections",
+    "14-missing",
+    "15-bar-scale",
 ];
 
 fn selected(name: &str) -> bool {
@@ -274,6 +276,42 @@ fn main() -> Result<(), Box<dyn Error>> {
         &config,
         &sections.meta,
         &[("", None, &sections.benchmarks)],
+        with_png,
+    )?;
+
+    // 14 · a row may be missing a source: the bar is skipped and the row shrinks.
+    let mut config = Config::default();
+    config.render.title = Some("rows missing a source".to_owned());
+    config.render.subtitle = Some("macOS only ran the first three".to_owned());
+    emit(
+        &font,
+        "14-missing",
+        &config,
+        &linux.meta,
+        &[
+            ("Linux x64", Some("#7FD1B9"), &linux.benchmarks),
+            ("Windows x64", Some("#8CB8F0"), &windows.benchmarks),
+            ("macOS arm64", Some("#F2B984"), &macos.benchmarks[..3]),
+        ],
+        with_png,
+    )?;
+
+    // 15 · bar_scale = "global": one reference per unit family for the whole card.
+    let mut config = Config::default();
+    config.render.title = Some("bar_scale = global".to_owned());
+    config.render.subtitle =
+        Some("every source is compared against the same best value".to_owned());
+    config.render.bar_scale = bench_svg::config::BarScale::Global;
+    emit(
+        &font,
+        "15-bar-scale",
+        &config,
+        &linux.meta,
+        &[
+            ("Linux x64", Some("#7FD1B9"), &linux.benchmarks),
+            ("Windows x64", Some("#8CB8F0"), &windows.benchmarks),
+            ("macOS arm64", Some("#F2B984"), &macos.benchmarks),
+        ],
         with_png,
     )?;
 

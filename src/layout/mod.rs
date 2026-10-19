@@ -38,6 +38,8 @@ impl Rect {
 pub struct SeriesValue {
     pub text: String,
     pub fraction: f32,
+    /// `false` when this source has no value for the row and is skipped.
+    pub present: bool,
 }
 
 /// A legend entry: a colour and the source it identifies.
@@ -61,6 +63,8 @@ pub struct RowPlan {
 
 #[derive(Debug, Clone, Copy)]
 pub struct BarBox {
+    /// Source index, used for the legend colour and the value lookup.
+    pub series: usize,
     pub track: Rect,
     pub fill: Rect,
 }
@@ -185,6 +189,7 @@ mod tests {
             values: vec![SeriesValue {
                 text: "2.10 GiB/s".to_owned(),
                 fraction: 1.0,
+                present: true,
             }],
             rme_text: Some("±1.20%".to_owned()),
             tooltip: String::new(),

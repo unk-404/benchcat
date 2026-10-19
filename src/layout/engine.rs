@@ -17,8 +17,14 @@ pub fn layout(
     options: &LayoutOptions,
 ) -> Result<LayoutPlan, LayoutError> {
     let content_width = options.width - options.padding * 2.0;
-    let multi_series = rows.iter().any(|row| row.values.len() > 1);
-    let series_count = rows.iter().map(|row| row.values.len()).max().unwrap_or(1);
+    let multi_series = rows
+        .iter()
+        .any(|row| row.values.iter().filter(|value| value.present).count() > 1);
+    let series_count = rows
+        .iter()
+        .map(|row| row.values.iter().filter(|value| value.present).count())
+        .max()
+        .unwrap_or(1);
 
     // The number badge is a cat: left pad (over the tail) + digit ink + gap +
     // head + right pad. Widths come from the glyph ink, so a 1-digit badge is
@@ -49,6 +55,7 @@ pub fn layout(
             };
             row.values
                 .iter()
+                .filter(|value| value.present)
                 .map(move |value| font.text_width(&value.text, size))
         })
         .fold(0.0f32, f32::max);
@@ -86,8 +93,37 @@ pub fn layout(
         options.card_height
     };
 
-    let label_w = (number_gutter + label_text_width + 16.0).clamp(180.0, content_width * 0.46);
-    let value_w = (value_width + 20.0).clamp(96.0, content_width * 0.30);
+    // A row is as tall as the bars it actually draws, so a row missing a source
+    // is shorter than its neighbours.
+    let row_height = |row: &RowPlan| -> f32 {
+        if !multi_series {
+            return card_height;
+        }
+        let count = row
+            .values
+            .iter()
+            .filter(|value| value.present)
+            .count()
+            .max(1);
+        let bars = bar_stack_height(count);
+        let label_block = font.line_height_px(LABEL_SIZE)
+            + if row.note.is_some() {
+                font.line_height_px(NOTE_SIZE)
+            } else {
+                0.0
+            };
+        (bars + 20.0)
+            .max(label_block + 18.0)
+            .max(card_height)
+            .max(NUMBER_BADGE_HEIGHT + 12.0)
+    };
+
+    // Narrow cards can make the percentage cap smaller than the minimum; keep
+    // the bounds ordered instead of panicking in `clamp`.
+    let label_cap = (content_width * 0.46).max(180.0);
+    let label_w = (number_gutter + label_text_width + 16.0).clamp(180.0, label_cap);
+    let value_cap = (content_width * 0.30).max(96.0);
+    let value_w = (value_width + 20.0).clamp(96.0, value_cap);
     let rme_w = if multi_series {
         4.0
     } else {
@@ -217,6 +253,10 @@ pub fn layout(
             cells.push([label, bar, value, rme]);
         }
 
+        let row_heights: Vec<_> = row_indices
+            .iter()
+            .map(|index| length(row_height(&rows[*index])))
+            .collect();
         let grid_style = Style {
             display: Display::Grid,
             grid_template_columns: vec![
@@ -225,7 +265,7 @@ pub fn layout(
                 length(value_w),
                 length(rme_w),
             ],
-            grid_auto_rows: vec![length(card_height)],
+            grid_template_rows: row_heights,
             gap: Size {
                 width: length(col_gap),
                 height: length(options.row_gap),
@@ -379,7 +419,7 @@ pub fn layout(
 
             let rows_index = row_indices[cell_index];
             let values = &rows[rows_index].values;
-            let count = values.len().max(1);
+            let count = values.iter().filter(|value| value.present).count().max(1);
             let (bar_height, gap) = if count == 1 {
                 (10.0, 0.0)
             } else {
@@ -388,8 +428,13 @@ pub fn layout(
             let content = count as f32 * bar_height + (count as f32 - 1.0) * gap;
             let top = card.y + (card.h - content) / 2.0;
             let mut bars = Vec::with_capacity(count);
+            let mut slot_index = 0usize;
             for (series, value) in values.iter().enumerate() {
-                let y = top + series as f32 * (bar_height + gap);
+                if !value.present {
+                    continue;
+                }
+                let y = top + slot_index as f32 * (bar_height + gap);
+                slot_index += 1;
                 let fraction = value.fraction.clamp(0.0, 1.0);
                 let track = Rect {
                     x: track_full.x,
@@ -398,6 +443,7 @@ pub fn layout(
                     h: bar_height,
                 };
                 bars.push(BarBox {
+                    series,
                     track,
                     fill: Rect {
                         x: track.x,
@@ -414,6 +460,7 @@ pub fn layout(
             if bars.is_empty() {
                 let y = card.y + (card.h - 10.0) / 2.0;
                 bars.push(BarBox {
+                    series: 0,
                     track: Rect {
                         x: track_full.x,
                         y,

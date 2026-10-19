@@ -41,7 +41,7 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
             texts.push((note, NOTE_SIZE));
         }
         if plan.multi_series {
-            for value in &row.row.values {
+            for value in row.row.values.iter().filter(|value| value.present) {
                 texts.push((value.text.as_str(), SERIES_VALUE_SIZE));
             }
         } else if let Some(value) = row.row.values.first() {
@@ -196,7 +196,8 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
             );
         }
 
-        for (series, bar) in row.bars.iter().enumerate() {
+        for bar in &row.bars {
+            let series = bar.series;
             let color = if plan.multi_series {
                 plan.legend
                     .get(series)

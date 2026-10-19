@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::config::{Config, RowRule};
+use crate::config::{BarCurve, BarScale, Config, Missing, RowRule};
 use crate::input::params_note;
 use crate::layout::{RowPlan, SeriesValue};
 use crate::model::{Benchmark, Direction, Unit, UnitKind};
@@ -78,42 +78,80 @@ pub(crate) fn merge_rows(
         }
     }
 
+    // Per-source best value of each unit family, for `bar_scale = "source"`.
+    let mut source_best: Vec<HashMap<UnitKind, f64>> = vec![HashMap::new(); series.len()];
+    for entries in slots.values() {
+        for (index, slot) in entries.iter().enumerate() {
+            if let Some(slot) = slot {
+                let candidate = source_best[index].entry(slot.kind).or_insert(slot.base);
+                match slot.direction {
+                    Direction::Higher => *candidate = candidate.max(slot.base),
+                    Direction::Lower => *candidate = candidate.min(slot.base),
+                }
+            }
+        }
+    }
+
     let mut rows: Vec<(usize, RowPlan)> = Vec::with_capacity(order.len());
     for id in order {
         let key = keys.get(&id).copied().unwrap_or(rules.len());
         let Some(entries) = slots.remove(&id) else {
             continue;
         };
+        let curve = if multi_series {
+            config.render.bar_curve
+        } else {
+            BarCurve::Log
+        };
+        let scale = if multi_series {
+            config.render.bar_scale
+        } else {
+            // A single source has one value per row, so every row is measured
+            // against the best row of the same unit family.
+            BarScale::Global
+        };
         let values: Vec<SeriesValue> = entries
             .iter()
-            .map(|slot| match slot {
+            .enumerate()
+            .map(|(series_index, slot)| match slot {
                 Some(slot) => {
-                    let reference = if multi_series {
-                        entries
+                    let reference = match scale {
+                        BarScale::Row => entries
                             .iter()
                             .flatten()
                             .filter(|other| other.kind == slot.kind)
                             .map(|other| other.base)
                             .fold(None::<f64>, |acc, value| {
                                 Some(match (acc, slot.direction) {
-                                    (None, Direction::Higher) => value,
-                                    (None, Direction::Lower) => value,
+                                    (None, _) => value,
                                     (Some(acc), Direction::Higher) => acc.max(value),
                                     (Some(acc), Direction::Lower) => acc.min(value),
                                 })
                             })
-                            .unwrap_or(slot.base)
-                    } else {
-                        *best.get(&slot.kind).unwrap_or(&slot.base)
+                            .unwrap_or(slot.base),
+                        BarScale::Source => source_best[series_index]
+                            .get(&slot.kind)
+                            .copied()
+                            .unwrap_or(slot.base),
+                        BarScale::Global => *best.get(&slot.kind).unwrap_or(&slot.base),
                     };
                     SeriesValue {
                         text: slot.text.clone(),
-                        fraction: bar_fraction(slot.base, reference, slot.direction),
+                        fraction: bar_fraction(slot.base, reference, slot.direction, curve),
+                        present: true,
                     }
                 }
-                None => SeriesValue {
-                    text: "—".to_owned(),
-                    fraction: 0.0,
+                None => match config.render.missing {
+                    Missing::Skip => SeriesValue {
+                        text: String::new(),
+                        fraction: 0.0,
+                        present: false,
+                    },
+                    Missing::Placeholder => SeriesValue {
+                        text: "—".to_owned(),
+                        fraction: 0.0,
+                        present: true,
+                    },
                 },
             })
             .collect();
@@ -185,14 +223,18 @@ fn map_benchmark(benchmark: &Benchmark, rules: &[RowRule]) -> Result<(Mapped, us
 }
 
 /// Log-compressed 0..1 bar length relative to `reference`.
-fn bar_fraction(base: f64, reference: f64, direction: Direction) -> f32 {
+fn bar_fraction(base: f64, reference: f64, direction: Direction, curve: BarCurve) -> f32 {
     if base <= 0.0 || reference <= 0.0 {
         return 0.0;
     }
+    let (value, reference) = match curve {
+        BarCurve::Linear => (base, reference),
+        BarCurve::Log => (libm::log1p(base), libm::log1p(reference)),
+    };
     let fraction = match direction {
-        Direction::Higher => libm::log1p(base) / libm::log1p(reference),
+        Direction::Higher => value / reference,
         // Lower is better: the best (smallest) value gets the longest bar.
-        Direction::Lower => libm::log1p(reference) / libm::log1p(base),
+        Direction::Lower => reference / value,
     };
     fraction.clamp(0.0, 1.0) as f32
 }
