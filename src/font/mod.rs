@@ -4,12 +4,14 @@
 //! TrueType/OpenType face it likes. Measurement and drawing always read the
 //! same file, which keeps layout and glyphs self-consistent by construction.
 
-use std::collections::HashMap;
+use dashmap::DashMap;
+use hashbrown::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::RwLock;
 
 use skrifa::instance::{LocationRef, Size};
 use skrifa::{FontRef, MetadataProvider};
+
+use crate::hash::BuildIdentity;
 
 /// Below this many distinct glyphs the thread pool costs more than it saves.
 const PARALLEL_GLYPH_THRESHOLD: usize = 96;
@@ -75,9 +77,11 @@ pub struct Font {
     pub leading: f32,
     /// Number of glyphs in the face, from the font's own metrics.
     pub glyph_count: u16,
-    glyphs: HashMap<char, Glyph>,
-    paths: RwLock<HashMap<u16, String>>,
-    bounds: RwLock<HashMap<u16, Option<GlyphBounds>>>,
+    glyphs: HashMap<char, Glyph, BuildIdentity>,
+    /// `gid -> path`; lazily filled, so only used glyphs cost memory.
+    paths: DashMap<u16, String, BuildIdentity>,
+    /// `gid -> bounds`; `None` is cached as "this glyph has no outline".
+    bounds: DashMap<u16, Option<GlyphBounds>, BuildIdentity>,
 }
 
 impl std::fmt::Debug for Font {
@@ -109,7 +113,7 @@ impl Font {
         })?;
         let metrics = font.metrics(Size::unscaled(), LocationRef::default());
         let metrics_h = font.glyph_metrics(Size::unscaled(), LocationRef::default());
-        let mut glyphs: HashMap<char, Glyph> = HashMap::new();
+        let mut glyphs: HashMap<char, Glyph, BuildIdentity> = HashMap::default();
         for (codepoint, gid) in font.charmap().mappings() {
             let Some(ch) = char::from_u32(codepoint) else {
                 continue;
@@ -134,8 +138,8 @@ impl Font {
             leading: metrics.leading,
             glyph_count: metrics.glyph_count,
             glyphs,
-            paths: RwLock::new(HashMap::new()),
-            bounds: RwLock::new(HashMap::new()),
+            paths: DashMap::with_hasher(BuildIdentity),
+            bounds: DashMap::with_hasher(BuildIdentity),
         })
     }
 

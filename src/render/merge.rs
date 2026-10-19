@@ -1,6 +1,6 @@
 //! Union of ids across sources, row rules and bar fractions.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 
 use crate::config::{BarCurve, BarScale, Config, Missing, RowRule};
 use crate::input::params_note;

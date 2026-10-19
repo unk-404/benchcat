@@ -3,7 +3,7 @@
 //! Every loader funnels into [`crate::model::Benchmark`], so the renderer never
 //! needs to know which tool produced the numbers.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
 use std::path::{Path, PathBuf};
 
 use rayon::prelude::*;

@@ -9,6 +9,7 @@ pub mod adapters;
 pub mod config;
 pub mod expr;
 pub mod font;
+mod hash;
 pub mod input;
 pub mod layout;
 pub mod model;

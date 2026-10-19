@@ -58,7 +58,7 @@ readers do not serialise.
 ```bash
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
-cargo test --all-targets                       # 33 tests
+cargo test --all-targets                       # 34 tests
 cargo run --example gallery -- --only 14 --png # one asset while iterating
 cargo run --example specimen -- --font quicksand
 cargo run --example gallery                    # full regeneration (final round)
@@ -116,6 +116,17 @@ strings.
 - `outline.rs`: `path` cache, `glyph_bounds`, rayon `extract_paths` above 96 glyphs.
 - `resolve.rs`: explicit file -> `./fonts/<family>.ttf` (default family `mplus-rounded`) -> first
   TTF/OTF on disk -> `BENCH_SVG_FONT_DIR` entries.
+
+Caches and lookups:
+
+- `glyphs` is a `hashbrown` map keyed by `char` with the identity hasher (`crate::hash::BuildIdentity`);
+  codepoints are already unique, so they are not hashed again.
+- `paths` / `bounds` are `DashMap<u16, _, BuildIdentity>`: only the glyphs that are actually used cost
+  memory, and concurrent readers do not serialise. Never turn these into `Vec` indexed by gid — gids are
+  sparse and a face can address up to `u16::MAX`, so a dense vector would waste memory.
+- String-key maps (`dedupe`, `merge`) use `hashbrown` with its default foldhash.
+- No map is iterated to produce output order: `dedupe` and `merge` walk `Vec`s, and map iteration only
+  folds max/min.
 
 The gallery defaults to `mplus-rounded`; changing the default font changes every committed asset.
 
