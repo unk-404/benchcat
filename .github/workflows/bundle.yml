@@ -509,11 +509,17 @@ jobs:
   # action exactly like a downstream repository does and installs the release
   # that this run just published.
   consumer:
-    name: consume the published action
+    name: consume the published action (${{ matrix.os }})
     needs: [changes, publish]
     if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' && needs.publish.result == 'success' }}
-    runs-on: ubuntu-24.04
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows is included on purpose: MSYS path handling broke checksum
+        # verification there while Linux and macOS were fine.
+        os: [ubuntu-24.04, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
 

@@ -120,11 +120,15 @@ elif curl -fsSL --retry 2 -o "$archive.sha256" "$sums_url" 2>/dev/null; then
   expected=$(awk -v name="bench-svg-$target.tar.gz" '$2 == name {print $1; exit}' "$archive.sha256")
 fi
 if [[ -n "$expected" ]]; then
+  # Hash the bare file name from inside its directory. MSYS sha256sum escapes a
+  # Windows path (leading backslash, doubled separators), so hashing
+  # "$archive" directly yields "\\<hash>" and never matches on Windows runners.
   if command -v sha256sum >/dev/null 2>&1; then
-    actual=$(sha256sum "$archive" | awk '{print $1}')
+    actual=$(cd "$cache_dir" && sha256sum bench-svg.tar.gz | awk '{print $1}')
   else
-    actual=$(shasum -a 256 "$archive" | awk '{print $1}')
+    actual=$(cd "$cache_dir" && shasum -a 256 bench-svg.tar.gz | awk '{print $1}')
   fi
+  actual="${actual#\\}"
   [[ "$expected" == "$actual" ]] || fail "checksum mismatch for $url"
   log "checksum verified"
 else

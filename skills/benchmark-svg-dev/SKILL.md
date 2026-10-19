@@ -174,7 +174,8 @@ Action installs the binary from the release itself. Marketplace needs a SemVer t
 not.
 
 After a successful release, a `consumer` job runs the action by reference
-(`unk-404/benchmark_svg@master`, not `uses: ./`) and installs the freshly published binary. This is the
+(`unk-404/benchmark_svg@master`, not `uses: ./`) on Ubuntu and Windows and installs the freshly
+published binary. This is the
 only job that exercises the composite-action download path: GitHub leaves `GITHUB_ACTION_REPOSITORY`
 empty inside composite steps ([community #49245](https://github.com/orgs/community/discussions/49245)),
 so `install.sh` derives `owner/repo` from `GITHUB_ACTION_PATH` (`…/_actions/<owner>/<repo>/<ref>`) and
