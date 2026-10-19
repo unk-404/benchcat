@@ -179,6 +179,11 @@ the workflow itself do not, because they cannot change the binary; `workflow_dis
 action job also runs `scripts/install.sh` against the latest release, so installer changes are still
 tested without a rebuild.
 
+A push that only touches `fonts/`, `assets/` or markdown takes a second shortcut: verify, identical-bytes,
+the action test, build and publish are skipped and the run goes straight to the assets job, which
+regenerates the gallery/specimens and commits them. That is why font-only commits do not have to pay for
+a Rust build on three operating systems.
+
 ## Where to change what
 
 | Want | Touch |

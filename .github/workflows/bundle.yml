@@ -2,6 +2,9 @@ name: bundle
 
 # One ordered chain:
 #
+# A fonts/assets/docs-only push skips straight to the assets job and stops:
+# there is nothing new to compile, verify or release.
+#
 #   verify (3 OS)        fmt, clippy, tests, plus one rendered card per platform
 #     └─ identical-bytes three platforms must agree on every byte
 #          └─ assets     regenerate gallery + specimens; commit on main,
@@ -30,16 +33,20 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  # Release builds are expensive (6 targets, attestations, a tag). Only run them
-  # when something that can change the binary changed: manifests, Rust sources,
-  # examples, cargo config or the toolchain pin. Scripts, action.yml, fonts,
-  # templates, docs and assets are exercised by the other jobs and never need a
-  # new release. A manual `workflow_dispatch` always builds.
+  # Two questions decide the rest of the run:
+  #   binary      - did anything that can change the release binary change
+  #                 (manifests, Rust sources, examples, cargo config, toolchain)?
+  #   assets_only - did only fonts/assets/docs change? Then skip verify, the
+  #                 action test, build and publish, regenerate assets and stop.
+  # Scripts, action.yml, templates and the workflow itself still run verify and
+  # the action test, but never need a new release. `workflow_dispatch` always
+  # builds.
   changes:
     name: detect binary changes
     runs-on: ubuntu-24.04
     outputs:
       binary: ${{ steps.diff.outputs.binary }}
+      assets_only: ${{ steps.diff.outputs.assets_only }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -49,6 +56,7 @@ jobs:
         run: |
           set -euo pipefail
           binary=true
+          assets_only=false
           pattern='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|examples/|\.cargo/|rust-toolchain)'
           case "${{ github.event_name }}" in
             push)
@@ -65,6 +73,10 @@ jobs:
                   binary=false
                   echo "no binary inputs changed; skipping the release build"
                 fi
+                if [[ -n "$changed" ]] && ! grep -Evq '^(fonts/|assets/|.*\.md$)' <<<"$changed"; then
+                  assets_only=true
+                  echo "fonts/assets/docs only: regenerating assets and stopping"
+                fi
               else
                 echo "cannot diff $before..$after: building"
               fi
@@ -74,9 +86,12 @@ jobs:
               ;;
           esac
           echo "binary=$binary" >> "$GITHUB_OUTPUT"
+          echo "assets_only=$assets_only" >> "$GITHUB_OUTPUT"
 
   verify:
     name: verify (${{ matrix.os }})
+    needs: changes
+    if: ${{ needs.changes.outputs.assets_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -136,7 +151,8 @@ jobs:
   # the release.
   assets:
     name: generate assets
-    needs: [verify, identical-bytes]
+    needs: [changes, verify, identical-bytes]
+    if: ${{ !cancelled() && (needs.changes.outputs.assets_only == 'true' || (needs.verify.result == 'success' && needs.identical-bytes.result == 'success')) }}
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
@@ -200,7 +216,8 @@ jobs:
   # path does not need to exist yet.
   action:
     name: action (${{ matrix.os }})
-    needs: assets
+    needs: [changes, assets]
+    if: ${{ needs.changes.outputs.assets_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:
