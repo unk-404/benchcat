@@ -39,9 +39,6 @@ pub struct RowRule {
     /// Arithmetic expression over `value` and `$1`…, e.g. `"value * $1 * 32"`.
     #[serde(default)]
     pub value: Option<String>,
-    /// Optional group override.
-    #[serde(default)]
-    pub group: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]

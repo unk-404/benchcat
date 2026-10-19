@@ -151,7 +151,6 @@ mod tests {
             note: Some("4 KiB · batch 32".to_owned()),
             unit: Some("IOPS".to_owned()),
             value: Some("value * $1 * 32".to_owned()),
-            group: None,
         }
     }
 
@@ -175,7 +174,6 @@ mod tests {
             note: None,
             unit: None,
             value: None,
-            group: None,
         };
         let yes = benchmark("file.read.8MiB", 1.0, "GiB/s");
         let no = benchmark("file.write.8MiB", 1.0, "GiB/s");
@@ -194,7 +192,6 @@ mod tests {
             note: None,
             unit: None,
             value: None,
-            group: None,
         };
         let mapped = apply(&rule, &bench, &[]).unwrap();
         assert_eq!(mapped.label.as_deref(), Some("read · 4w"));

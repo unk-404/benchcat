@@ -1,83 +1,47 @@
-# bench-svg
+# Benchmark SVG
 
-Render benchmark results as a self-contained, pastel SVG card that belongs in a README.
+Render benchmark results as a self-contained SVG card for a README.
 
-No dashboard, no Pages branch, no JavaScript: one deterministic SVG file, with every label drawn from
-real font outlines so GitHub can never substitute a different typeface.
+A personal tool, published as-is. It reads what a benchmark runner already writes, draws one SVG, and
+stops there — committing it, uploading it, or commenting it on a pull request is your workflow's job.
 
 ![benchmark card](assets/examples/01-basic.svg)
-
-## Why another benchmark chart
-
-| | `bench-svg` | `github-action-benchmark` | CodSpeed / Bencher |
-|---|---|---|---|
-| Artifact | one committed SVG | HTML/Chart.js on gh-pages | hosted dashboard |
-| Works in a README | yes | no (link only) | badge only |
-| Font independent | outlines | viewer font | viewer font |
-| Byte-identical reruns | yes | n/a | n/a |
-| Same operation across sources | yes, one row per operation | no | separate series |
-| Runtime | one static binary | Node action | SaaS |
 
 ## Install
 
 ```bash
-cargo binstall bench-svg        # prebuilt binary
-cargo install --path .          # from source
+cargo install --path .
 ```
 
-A TrueType/OpenType face is required. `fonts/` ships a small, OFL-only catalogue of rounded faces that
-stay friendly without hurting legibility; pick one with `[font] family` or `--font`:
+Or download a prebuilt binary from Releases (`bench-svg-<target>.tar.gz`, checksums in `SHA256SUMS`).
+
+A TrueType/OpenType face is required; `fonts/` ships an OFL catalogue (see [Fonts](#fonts)):
 
 ```bash
 bench-svg render bench.jsonl -o assets/bench.svg --font quicksand
 bench-svg render bench.jsonl -o assets/bench.svg --font-file MyFont.ttf
 ```
 
-| Family | File | Covers | Size | Licence |
-|---|---|---|---|---|
-| Rounded M PLUS 1c (default) | `mplus-rounded.ttf` | Latin, Kana, JIS Kanji | 3.4 MB | OFL 1.1 |
-| Quicksand | `quicksand.ttf` | Latin | 122 KB | OFL 1.1 |
-| Nunito | `nunito.ttf` | Latin | 270 KB | OFL 1.1 |
-| Sniglet | `sniglet.ttf` | Latin | 74 KB | OFL 1.1 |
-| Comfortaa | `comfortaa.ttf` | Latin | 197 KB | OFL 1.1 |
-| Zen Maru Gothic | `zen-maru-gothic.ttf` | Latin, Kana, JIS Kanji | 3.7 MB | OFL 1.1 |
-| ZCOOL KuaiLe | `zcool-kuaile.ttf` | Latin, Simplified Chinese | 1.4 MB | OFL 1.1 |
-| Gaegu | `gaegu.ttf` | Latin, Hangul | 3.0 MB | OFL 1.1 |
-
-Every family ships its `-OFL.txt` next to the binary, and every family has a specimen card under
-`assets/fonts/<file-stem>.svg`.
-
 ## Quick start
 
 ```bash
-# Dart benchmark_test JSONL
-bench-svg render bench-core.jsonl -o assets/bench.svg
+bench-svg render bench.jsonl       -o assets/bench.svg                 # benchmark_test JSONL
+bench-svg render report.json       -o assets/bench.svg                 # canonical JSON
+bench-svg render results.csv       -o assets/bench.svg                 # CSV
+bench-svg render target/criterion  -o assets/bench.svg --format criterion
+bench-svg render bench.json        -o assets/bench.svg --format hyperfine
+```
 
-# canonical JSON (any tool can emit this)
-bench-svg render report.json -o assets/bench.svg
+Same inputs produce the same bytes, so a committed SVG only changes when the data does:
 
-# CSV straight out of a spreadsheet
-bench-svg render results.csv -o assets/bench.svg
+```bash
+git diff --quiet -- assets/bench.svg || git commit -am "bench: refresh [skip ci]"
 ```
 
 ## Input
 
 `--format` accepts `auto` (default), `json`, `jsonl`, `csv`, `benchmark_test`, `criterion` and
-`hyperfine`. Directories are walked recursively; `report/` folders (criterion's HTML output) are
-skipped.
-
-Importers read the tools' own output; nothing has to be converted first:
-
-```bash
-bench-svg render target/criterion -o assets/bench.svg --format criterion
-bench-svg render bench.json -o assets/bench.svg --format hyperfine
-```
-
-- **criterion** — walks `target/criterion/**/new/estimates.json`, reads the sibling `benchmark.json`
-  for `full_id` and `throughput`, and turns `Bytes`/`Elements` throughput into `B/s`/`ops/s`
-  (`ns/op`, `direction: lower` otherwise). The 95 % confidence interval becomes the ±RME column.
-- **hyperfine** — reads `--export-json` v2 (and the legacy v1 shape), using the wall-clock mean with
-  `direction: lower`; seconds are formatted as ms/µs automatically.
+`hyperfine`. Directories are walked recursively; criterion's `report/` folder is skipped.
 
 Canonical shape, `bench-svg/report@1`:
 
@@ -91,62 +55,61 @@ Canonical shape, `bench-svg/report@1`:
     "platform": { "os": "Windows", "arch": "x86_64", "cpu": "Ryzen 9 7950X", "cores": 32 }
   },
   "benchmarks": [{
-    "id": "file.read.8MiB",          // stable key: matching, history, comparisons
+    "id": "file.read.8MiB",          // stable key: matching, ordering, comparisons
     "group": "File I/O",
     "label": "Sequential read",      // display only
     "note": "8 MiB blocks · 1 GiB file",
     "unit": "B/s",                   // a dimension, not a decoration
     "value": 2254857830,
     "direction": "higher",           // "lower" for latency
-    "params": { "block": "8MiB" },   // structured, never parsed out of names
+    "params": { "block": "8MiB" },   // structured, available to row templates
     "stats": { "rme_pct": 1.21, "samples": 5 },
     "deterministic": false
   }]
 }
 ```
 
-Units carry a dimension (`B/s`, `IOPS`, `ns/op`, `instr`, `×`), so `2.10 GiB/s` and `1.24 ms` are
-formatted from the data instead of hard-coded per row. Bars are scaled against the best value **inside
-the same dimension**, and `direction: "lower"` inverts the bar so longer always means better.
+Units carry a dimension (`B/s`, `IOPS`, `ns/op`, `instr`, `×`), so values are formatted from the data.
+Bars are scaled inside one dimension, and `direction: "lower"` inverts them so a longer bar always
+means better.
 
-## Gallery
-
-| Figure | Shows |
-|---|---|
-| [`01-basic.svg`](assets/examples/01-basic.svg) | single source, mixed units, RME column |
-| [`02-comparison.svg`](assets/examples/02-comparison.svg) | same operations, three platforms, legend, per-row values |
-| [`03-units.svg`](assets/examples/03-units.svg) | `B/s`, `IOPS`, `ns/op`, `instr` formatted from their units |
-| [`04-min-height.svg`](assets/examples/04-min-height.svg) | `min_height` keeps short cards the same height |
-| [`05-dark.svg`](assets/examples/05-dark.svg) | `theme = "dark"` |
-| [`06-max-rows.svg`](assets/examples/06-max-rows.svg) | `max_rows` truncation for a stable README height |
-| [`07-dynamic-height.svg`](assets/examples/07-dynamic-height.svg) | height follows the number of rows |
-| [`08-cjk.svg`](assets/examples/08-cjk.svg) | Japanese labels: outlines work for any script the font covers |
-| [`09-notes.svg`](assets/examples/09-notes.svg) | notes and structured params on the second line |
-| [`10-criterion.svg`](assets/examples/10-criterion.svg) | `--format criterion` straight from `target/criterion` |
-| [`11-hyperfine.svg`](assets/examples/11-hyperfine.svg) | `--format hyperfine`, lower-is-better bars |
-| [`12-rows.svg`](assets/examples/12-rows.svg) | `[[row]]` mapping: labels, units and `value * $1 * 32` |
-
-Regenerate them with:
+### criterion
 
 ```bash
-cargo run --example gallery            # SVGs into assets/examples/
-cargo run --example gallery -- --png   # plus PNG previews in target/previews/
-cargo run --example specimen           # one specimen card per font in fonts/
+bench-svg render target/criterion -o assets/bench.svg --format criterion
 ```
 
-CI runs the same commands and fails if the committed SVGs are stale.
+Walks `<bench>/new/estimates.json`, reads the sibling `benchmark.json` for `full_id` and `throughput`,
+and turns `Bytes`/`Elements` throughput into `B/s`/`ops/s` (`ns/op`, lower-is-better otherwise). The
+95 % confidence interval becomes the ±RME column.
 
-### Type specimens
+### hyperfine
 
-Every font in `fonts/` also gets a specimen card in the same visual language: coverage per script,
-metrics, and a pastel cat for every glyph the face cannot draw. A script with no coverage at all keeps
-its row, marked with a dashed card, instead of silently disappearing. Non-Latin rows carry the script
-name in English on the right, and the cat style — and therefore its size — is chosen from the ink of
-the glyphs that row *can* draw, so dense CJK lines are not crowded by oversized placeholders.
+```bash
+bench-svg render bench.json -o assets/bench.svg --format hyperfine
+```
 
-[`assets/fonts/mplus-rounded.svg`](assets/fonts/mplus-rounded.svg)
+Reads `--export-json` v2 (and the legacy v1 shape), using the wall-clock mean with lower-is-better;
+seconds are formatted as ms/µs.
 
-![type specimen](assets/fonts/mplus-rounded.svg)
+## CLI
+
+| Flag | Meaning |
+|---|---|
+| `INPUT...` | Files or directories |
+| `--out <FILE>` | Output path; `-` writes to stdout |
+| `--format <FORMAT>` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
+| `--config <FILE>` | Defaults to `./bench-svg.toml` when present |
+| `--font <NAME>` | Family inside `./fonts` |
+| `--font-file <FILE>` | Explicit TTF/OTF |
+| `--title` / `--subtitle` / `--footer` | Override the three text lines |
+| `--width <PX>` | Canvas width (default 920) |
+| `--min-height <PX>` | Keep the card at least this tall |
+| `--max-rows <N>` | Render only the first N rows |
+| `--theme <NAME>` | `pastel` or `dark` |
+| `--stdout` | Also print the SVG |
+
+`bench-svg formats` lists the accepted format names.
 
 ## Config
 
@@ -177,13 +140,13 @@ input = "bench-windows.jsonl"
 color = "#8CB8F0"
 ```
 
-Two or more `[[series]]` switch the card to the comparison layout: one row per operation, one bar per
-source, a legend, and one value per bar. Rows missing from a source render as an empty track and `—`.
+Two or more `[[series]]` switch to the comparison layout: one row per operation, one bar per source, a
+legend, and one value per bar. Rows missing from a source render as an empty track and `—`.
 
 ### Row mapping
 
-`[[row]]` replaces the hard-coded row table the Dart renderer used to have. Rules are applied in order;
-matching rows take the rule's position in the card.
+`[[row]]` renames rows, overrides units and transforms values. Rules apply in order, and matching rows
+take the rule's position in the card.
 
 ```toml
 [[row]]
@@ -195,17 +158,15 @@ note = "8 MiB blocks · 1 GiB file"
 match = '^pool\.read\.random4K\.w(\d+)$'
 label = "Pool read · $1 workers"
 note = "4 KiB · batch 32"
-value = "value * $1 * 32"    # arithmetic over `value` and captures
+value = "value * $1 * 32"
 unit = "IOPS"
 ```
 
 - `id` is an exact match; `match` is a regex whose groups become `$1`… in templates and values.
-- `label`/`note` are templates: `$1` captures, `{param}` structured parameters. An empty `note`
-  clears the note.
-- `value` is a tiny safe expression: numbers, `value`, `$1`…, `+ - * /`, parentheses, and
-  `min`/`max`/`abs`/`log10`/`sqrt`/`round`. No I/O and no host access, so a config arriving from a
-  pull request is safe to evaluate.
-- `only_matched = true` under `[render]` drops rows no rule matched; the default appends them.
+- `label`/`note` support `$1` captures and `{param}` placeholders; an empty `note` clears it.
+- `value` is a small expression: numbers, `value`, `$1`…, `+ - * /`, parentheses and
+  `min`/`max`/`abs`/`log10`/`sqrt`/`round`.
+- `only_matched = true` under `[render]` drops unmatched rows; the default appends them.
 
 ### Placeholders
 
@@ -213,52 +174,54 @@ unit = "IOPS"
 `{os}`, `{os_version}`, `{arch}`, `{cpu}`, `{cores}`, `{ram_gib}`, `{runner}`, `{rows}`, `{font}`.
 
 Values come from the input document plus `GITHUB_SHA`, `RUNNER_OS` and `RUNNER_ARCH` when present.
-Nothing reads the clock. `{key|fallback}` renders the fallback when the value is empty; `{{` is a
-literal `{`.
+`{key|fallback}` renders the fallback when the value is empty; `{{` is a literal `{`.
 
-## Determinism
+## Fonts
 
-Same inputs, same bytes — on every platform. That is what makes the artifact committable:
+`fonts/` holds an OFL-only catalogue; pick one with `[font] family` or `--font`.
+
+| Family | File | Covers | Size |
+|---|---|---|---|
+| Rounded M PLUS 1c (default) | `mplus-rounded.ttf` | Latin, Kana, JIS Kanji | 3.4 MB |
+| Quicksand | `quicksand.ttf` | Latin | 122 KB |
+| Nunito | `nunito.ttf` | Latin | 270 KB |
+| Sniglet | `sniglet.ttf` | Latin | 74 KB |
+| Comfortaa | `comfortaa.ttf` | Latin | 197 KB |
+| Zen Maru Gothic | `zen-maru-gothic.ttf` | Latin, Kana, JIS Kanji | 3.7 MB |
+| ZCOOL KuaiLe | `zcool-kuaile.ttf` | Latin, Simplified Chinese | 1.4 MB |
+| Gaegu | `gaegu.ttf` | Latin, Hangul | 3.0 MB |
+
+Each family ships its `-OFL.txt` next to the binary, and a type specimen under
+`assets/fonts/<file-stem>.svg`. Specimens draw every glyph the face cannot provide as a small pastel
+cat, and keep the row for a script with no coverage at all.
+
+## Examples
+
+| Figure | Shows |
+|---|---|
+| [`01-basic.svg`](assets/examples/01-basic.svg) | single source, mixed units, RME column |
+| [`02-comparison.svg`](assets/examples/02-comparison.svg) | same operations, three platforms, legend |
+| [`03-units.svg`](assets/examples/03-units.svg) | `B/s`, `IOPS`, `ns/op`, `instr` from their units |
+| [`04-min-height.svg`](assets/examples/04-min-height.svg) | `min_height` |
+| [`05-dark.svg`](assets/examples/05-dark.svg) | `theme = "dark"` |
+| [`06-max-rows.svg`](assets/examples/06-max-rows.svg) | `max_rows` |
+| [`07-dynamic-height.svg`](assets/examples/07-dynamic-height.svg) | height follows the rows |
+| [`08-cjk.svg`](assets/examples/08-cjk.svg) | Japanese labels |
+| [`09-notes.svg`](assets/examples/09-notes.svg) | notes and structured params |
+| [`10-criterion.svg`](assets/examples/10-criterion.svg) | `--format criterion` |
+| [`11-hyperfine.svg`](assets/examples/11-hyperfine.svg) | `--format hyperfine` |
+| [`12-rows.svg`](assets/examples/12-rows.svg) | `[[row]]` mapping |
 
 ```bash
-bench-svg render bench.jsonl -o assets/bench.svg
-git diff --quiet -- assets/bench.svg || git commit -am "bench: refresh [skip ci]"
+cargo run --example gallery            # SVGs into assets/examples/
+cargo run --example gallery -- --png   # plus PNG previews in target/previews/
+cargo run --example specimen           # one specimen per font in fonts/
 ```
-
-To keep that promise the renderer never reads the clock, never shells out to `git`, sorts every
-collection, formats floats explicitly, uses software `libm` for logarithms, and hashes nothing.
-
-## Bundle
-
-One workflow, one order: code first, then assets, then the action, then the release.
-
-```
-verify (3 OS)          fmt, clippy, tests, plus one rendered card per platform
-  └─ identical-bytes   three platforms render byte-identical SVGs
-       └─ assets       regenerate gallery + specimens
-            └─ action (3 OS)   the composite action itself, via `uses: ./`
-                 └─ build (6)  release archives
-                      └─ publish  tag, archives, checksums, and the asset bundle
-```
-
-- On a **pull request** the `assets` stage is a gate: the regenerated bytes must equal the committed
-  ones, and everything after it is skipped.
-- On **main** the `assets` stage commits the fresh bytes with `[skip ci]` and hands them to `publish`,
-  which attaches `bench-svg-assets.tar.gz` (gallery + specimens) next to the binaries.
-
-There are no semantic versions here; a release is identified by the date and the commit it was built
-from, for example `v2026.10.19-cd5cd87`. Every archive is checksummed, attested with SLSA provenance,
-and shipped with a `SHA256SUMS` file.
-
-The gallery is committed on purpose: it is the visual contract. A rendering change that alters the
-bytes must ship the new bytes in the same commit.
 
 ## GitHub Action
 
-The action is a thin wrapper: it installs the right binary (cached, checksum-verified, with a
-`tool_path` escape hatch for air-gapped runners) and runs one render. It never touches git, tokens or
-pull-request comments — those stay ordinary steps in your workflow, so there is nothing to fight when
-your repository's rules change.
+The action installs the right binary (cached, checksum-verified) and runs one render. It does not touch
+git, tokens or pull requests.
 
 ```yaml
 - uses: unk-404/benchmark_svg@v1
@@ -268,49 +231,40 @@ your repository's rules change.
     format: criterion
     out: assets/benchmarks.svg
     config: bench-svg.toml
-    # version: v2026.10.19-cd5cd87   # optional pin
 ```
 
 | Input | Default | Meaning |
 |---|---|---|
 | `input` | — | Files or directories, space or newline separated |
-| `format` | `auto` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
+| `format` | `auto` | Same values as `--format` |
 | `config` | — | `bench-svg.toml` (auto-discovered when omitted) |
-| `out` | `assets/benchmarks.svg` | Where to write the SVG |
-| `font` | — | Family inside `./fonts`, e.g. `quicksand` |
-| `font_file` | — | Explicit TTF/OTF instead of the catalogue |
+| `out` | `assets/benchmarks.svg` | Output path |
+| `font` | — | Family inside `./fonts` |
+| `font_file` | — | Explicit TTF/OTF |
 | `version` | `auto` | Release tag; `auto` follows the action ref, else `latest` |
 | `tool_path` | — | Use an existing binary, no download |
 
-Outputs: `svg` (path) and `bytes` (size). The step summary records both.
+Outputs: `svg` and `bytes`. The step summary records both. Set `BENCH_SVG_RELEASE_BASE` to a mirror
+when GitHub release downloads are slow.
 
-`version: auto` never calls the GitHub API: if the action is pinned to a release tag it uses that tag,
-otherwise it downloads `releases/latest/download/...`. Set `BENCH_SVG_RELEASE_BASE` to a mirror when
-GitHub release downloads are slow.
+Ready-made workflows are in [`templates/`](templates/):
 
-Ready-made workflows live in [`templates/`](templates/):
+- [`rust-criterion.yml`](templates/rust-criterion.yml)
+- [`dart-benchmark-test.yml`](templates/dart-benchmark-test.yml)
+- [`hyperfine-matrix.yml`](templates/hyperfine-matrix.yml)
 
-- [`rust-criterion.yml`](templates/rust-criterion.yml) — `cargo bench`, then render and commit
-- [`dart-benchmark-test.yml`](templates/dart-benchmark-test.yml) — `benchmark_test` JSONL
-- [`hyperfine-matrix.yml`](templates/hyperfine-matrix.yml) — two runners merged into one comparison card
+## For agents
 
-## Status
+[`skills/benchmark-svg/SKILL.md`](skills/benchmark-svg/SKILL.md) is a self-contained integration guide:
+formats, config, action wiring, verification commands and failure modes. Read that instead of this
+file when automating the tool.
 
-- [x] canonical input, JSONL (benchmark_test) and CSV
-- [x] criterion and hyperfine importers
-- [x] runtime TrueType metrics and outlines, parallel extraction with rayon
-- [x] taffy layout, dynamic height, `min_height`, `max_rows`
-- [x] multi-source comparison with legend
-- [x] pastel and dark themes, font catalogue, type specimens
-- [x] placeholder expansion
-- [x] `[[row]]` mapping (labels, unit overrides, regex capture, value expressions)
-- [x] reusable GitHub Action with a cached, checksum-verified binary
-- [x] CI with a cross-platform identical-bytes gate
-- [x] release bundle with date+commit tags
-- [ ] pytest / JMH / gungraun importers
-- [ ] README-managed block and shields endpoint
+## Releases
+
+Tags are `vYYYY.MM.DD-<short-sha>` (no semantic versions). Each release carries the six target
+archives, `SHA256SUMS`, `bench-svg-assets.tar.gz` (gallery and specimens), and SLSA attestations.
 
 ## License
 
-MIT OR Apache-2.0. The bundled fonts are under the SIL Open Font License 1.1; each `fonts/<name>-OFL.txt`
-carries the original copyright notice.
+MIT OR Apache-2.0. The bundled fonts are under the SIL Open Font License 1.1; each
+`fonts/<name>-OFL.txt` carries the original copyright notice.
