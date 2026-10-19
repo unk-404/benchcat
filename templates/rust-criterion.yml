@@ -1,0 +1,49 @@
+# Rust + criterion → README SVG
+#
+# Replace `OWNER/bench-svg` with the repository that publishes the action.
+# The action only renders; committing the result is a plain `git` step, so the
+# workflow stays readable and the tool stays out of your git history.
+
+name: benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  criterion:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Run the benchmarks
+        run: cargo bench --all-features -- --save-baseline main
+
+      # `target/criterion` is ingested as-is; no JSON conversion step.
+      - uses: OWNER/bench-svg@v1
+        id: bench
+        with:
+          input: target/criterion
+          format: criterion
+          out: assets/benchmarks.svg
+          config: bench-svg.toml
+
+      # Deterministic output means an unchanged benchmark produces no diff.
+      - name: Commit when the chart changed
+        if: github.event_name == 'push'
+        run: |
+          if git diff --quiet -- assets/benchmarks.svg; then
+            echo "no change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/benchmarks.svg
+          git commit -m "chore(bench): refresh chart [skip ci]"
+          git push

@@ -1,0 +1,43 @@
+# Dart `benchmark_test` → README SVG
+#
+# Replace `OWNER/bench-svg` with the repository that publishes the action.
+
+name: benchmarks
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+
+      - name: Run the benchmarks
+        run: |
+          dart pub get
+          dart test benchmark/io_benchmark.dart --reporter expanded > bench.txt
+          grep '^{' bench.txt > bench.jsonl
+
+      - uses: OWNER/bench-svg@v1
+        with:
+          input: bench.jsonl
+          format: benchmark_test
+          out: assets/benchmarks.svg
+
+      - name: Commit when the chart changed
+        run: |
+          if git diff --quiet -- assets/benchmarks.svg; then
+            echo "no change"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/benchmarks.svg
+          git commit -m "chore(bench): refresh chart [skip ci]"
+          git push

@@ -1,0 +1,37 @@
+[font]
+family = "mplus-rounded"
+
+[render]
+title = "declarative row mapping"
+subtitle = "{tool} · {rows} rows"
+footer = "labels, units and values all come from bench-svg.toml — no code"
+only_matched = true
+
+[[row]]
+id = "file.read.8MiB"
+label = "Sequential read"
+note = "8 MiB blocks · 1 GiB file"
+
+[[row]]
+id = "file.write.8MiB"
+label = "Sequential write"
+note = "8 MiB blocks · 1 GiB file"
+
+[[row]]
+match = '^file\.read\.random4K$'
+label = "Random pread"
+note = "4 KiB · 1 GiB file"
+
+[[row]]
+match = '^pool\.read\.random4K\.w(\d+)$'
+label = "Pool read · $1 workers"
+note = "4 KiB · batch 32"
+value = "value * $1 * 32"
+unit = "IOPS"
+
+[[row]]
+match = '^iocp\.read\.random4K\.qd(\d+)$'
+label = "IOCP read · QD$1"
+note = "4 KiB · single worker"
+value = "value * $1"
+unit = "IOPS"

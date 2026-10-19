@@ -1,0 +1,196 @@
+name: release
+
+# There are no meaningful version numbers for this tool: the artifact is the
+# SVG, and every release is identified by the date plus the commit it was built
+# from (`v2026.10.19-cd5cd87`).
+#
+# Pipeline, in this order:
+#   1. verify   fmt, clippy, tests
+#   2. build    six targets in parallel, still no release
+#   3. examples regenerate assets/examples and commit them with [skip ci]
+#   4. publish  tag the built commit, create the release, attach archives
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "assets/examples/**"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BIN: bench-svg
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --all-targets
+
+  build:
+    name: build ${{ matrix.target }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Static musl builds dodge the glibc treadmill; arm64 Linux needs cross
+      # to get a linker.
+      - name: Install cross
+        if: matrix.cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Build
+        shell: bash
+        run: |
+          if [[ "${{ matrix.cross }}" == "true" ]]; then
+            cross build --release --locked --target ${{ matrix.target }}
+          else
+            cargo build --release --locked --target ${{ matrix.target }}
+          fi
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          ext=""
+          case "${{ matrix.target }}" in *windows*) ext=".exe" ;; esac
+          stage="target/${{ matrix.target }}/release"
+          archive="bench-svg-${{ matrix.target }}.tar.gz"
+          tar -czf "$archive" -C "$stage" "bench-svg${ext}"
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum "$archive" > "$archive.sha256"
+          else
+            shasum -a 256 "$archive" > "$archive.sha256"
+          fi
+          test -s "$archive"
+
+      - name: Attest
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "bench-svg-*.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-svg-${{ matrix.target }}
+          path: |
+            bench-svg-*.tar.gz
+            bench-svg-*.tar.gz.sha256
+          if-no-files-found: error
+
+  # Runs only after every target succeeded, and deliberately before the
+  # release: the gallery ships with the same tag.
+  examples:
+    name: regenerate examples
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Generate assets
+        run: |
+          cargo run --example gallery
+          cargo run --example specimen
+
+      # `[skip ci]` keeps this generated commit from starting another pipeline.
+      - name: Commit assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- assets/examples assets/fonts; then
+            echo "assets already up to date"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/examples assets/fonts
+          git commit -m "chore(assets): regenerate gallery and type specimens for ${GITHUB_SHA::7} [skip ci]"
+          for attempt in 1 2 3; do
+            git pull --rebase --autostash && git push && break
+            sleep $((attempt * 3))
+          done
+
+  publish:
+    name: publish
+    needs: [build, examples]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-svg-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum *.tar.gz > SHA256SUMS
+          cat SHA256SUMS
+
+      # Date + commit, never a semantic version: `v2026.10.19-cd5cd87`.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "release $tag already exists for this commit"
+            exit 0
+          fi
+          gh release create "$tag" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "bench-svg $tag" \
+            --generate-notes \
+            dist/*.tar.gz dist/SHA256SUMS
+          echo "::notice::released $tag"

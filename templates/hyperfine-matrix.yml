@@ -1,0 +1,52 @@
+# hyperfine → README SVG, with two platforms compared side by side
+#
+# Replace `OWNER/bench-svg` with the repository that publishes the action.
+
+name: benchmarks
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  measure:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: hyperfine
+
+      - name: Measure
+        run: |
+          hyperfine --warmup 3 --runs 20 \
+            --export-json "bench-${{ matrix.os }}.json" \
+            './target/release/app --help' \
+            './target/release/app --version'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hyperfine-${{ matrix.os }}
+          path: bench-*.json
+
+  render:
+    needs: measure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: hyperfine-*
+          merge-multiple: true
+
+      # One row per command, one bar per platform: the comparison layout.
+      - uses: OWNER/bench-svg@v1
+        with:
+          input: bench-ubuntu-latest.json bench-macos-14.json
+          format: hyperfine
+          out: assets/benchmarks.svg
+          config: bench-svg.toml   # declare [[series]] there

@@ -1,0 +1,93 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    name: test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Format
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Test
+        run: cargo test --all-targets
+
+      # The gallery and the type specimens are committed, so a rendering change
+      # must ship new bytes.
+      - name: Regenerate assets
+        run: |
+          cargo run --example gallery
+          cargo run --example specimen
+
+      - name: Assets are up to date
+        shell: bash
+        run: git diff --exit-code -- assets/examples assets/fonts
+
+  render:
+    name: render (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Render
+        run: cargo run --quiet -- render examples/bench.jsonl -o target/bench.svg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-svg-${{ matrix.os }}
+          path: target/bench.svg
+          if-no-files-found: error
+
+  # Determinism is the contract behind "commit only when the SVG changed":
+  # three operating systems must agree on every byte.
+  identical-bytes:
+    name: identical bytes across platforms
+    needs: render
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-svg-*
+          merge-multiple: true
+          path: artifacts
+      - name: Compare
+        shell: bash
+        run: |
+          cd artifacts
+          ls -l
+          sha256sum *.svg
+          files=(*.svg)
+          for file in "${files[@]:1}"; do
+            cmp "${files[0]}" "$file"
+          done

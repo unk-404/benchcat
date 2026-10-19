@@ -1,0 +1,10 @@
+{
+  "mean": {
+    "confidence_interval": { "confidence_level": 0.95, "lower_bound": 1210000.0, "upper_bound": 1270000.0 },
+    "point_estimate": 1240000.0,
+    "standard_error": 6000.0
+  },
+  "median": { "point_estimate": 1235000.0 },
+  "median_abs_dev": { "point_estimate": 12000.0 },
+  "std_dev": { "point_estimate": 48000.0 }
+}

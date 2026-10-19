@@ -1,0 +1,63 @@
+{
+  "schema": "bench-svg/report@1",
+  "meta": {
+    "tool": "bench-svg",
+    "tool_version": "0.1.0",
+    "commit": "a1b2c3d4e5f60718",
+    "branch": "main",
+    "platform": { "os": "Linux", "arch": "x86_64", "cpu": "Ryzen 9 7950X", "cores": 32 }
+  },
+  "benchmarks": [
+    {
+      "id": "io.seq-read",
+      "label": "Sequential read",
+      "note": "8 MiB blocks · 1 GiB file",
+      "unit": "B/s",
+      "value": 2254857830,
+      "stats": { "rme_pct": 1.21, "samples": 5 }
+    },
+    {
+      "id": "io.seq-write",
+      "label": "Sequential write",
+      "note": "8 MiB blocks · 1 GiB file",
+      "unit": "B/s",
+      "value": 2190433320,
+      "stats": { "rme_pct": 1.48, "samples": 5 }
+    },
+    {
+      "id": "io.rand-read",
+      "label": "Random pread",
+      "note": "4 KiB · 1 GiB file",
+      "unit": "IOPS",
+      "value": 82400,
+      "stats": { "rme_pct": 2.34, "samples": 5 }
+    },
+    {
+      "id": "hash.sha256",
+      "label": "SHA-256",
+      "note": "1 MiB payload",
+      "unit": "ns/op",
+      "value": 1240000,
+      "direction": "lower",
+      "stats": { "rme_pct": 0.8, "samples": 5 }
+    },
+    {
+      "id": "parse.json",
+      "label": "Parse JSON",
+      "note": "1 document",
+      "unit": "ns/op",
+      "value": 48200,
+      "direction": "lower",
+      "stats": { "rme_pct": 1.1, "samples": 5 }
+    },
+    {
+      "id": "alloc.small",
+      "label": "Small allocations",
+      "note": "instruction count · deterministic",
+      "unit": "instr",
+      "value": 812334,
+      "direction": "lower",
+      "deterministic": true
+    }
+  ]
+}

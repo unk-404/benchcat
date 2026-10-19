@@ -1,0 +1,26 @@
+[font]
+# File stem inside ./fonts; see the font catalogue in README.md.
+family = "mplus-rounded"
+
+[render]
+title = "blit benchmarks"
+# {placeholders} are expanded from the input document, never from the clock:
+# {commit} {commit:full} {branch} {tool} {tool_version} {platform} {os} {arch}
+# {cpu} {cores} {ram_gib} {runner} {rows} {font}
+# `{key|fallback}` renders the fallback when the value is empty.
+subtitle = "{platform|local} · {tool} {tool_version} · commit {commit}"
+footer = "Generated from {rows} rows · {tool} · bars are relative to the best value in each unit"
+width = 920
+min_height = 0
+
+# Two or more sources turn on the comparison layout:
+#
+# [[series]]
+# label = "Linux x64"
+# input = "bench-linux.jsonl"
+# color = "#7FD1B9"
+#
+# [[series]]
+# label = "Windows x64"
+# input = "bench-windows.jsonl"
+# color = "#8CB8F0"

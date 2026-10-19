@@ -1,0 +1,62 @@
+name: bench-svg
+description: Render benchmark results as a self-contained, pastel SVG card for a README
+author: bench-svg
+
+branding:
+  icon: bar-chart-2
+  color: purple
+
+inputs:
+  input:
+    description: Files or directories to render, separated by spaces or newlines
+    required: true
+  format:
+    description: auto, json, jsonl, csv, benchmark_test, criterion, hyperfine
+    default: auto
+  config:
+    description: Path to bench-svg.toml (auto-discovered in the working directory)
+    required: false
+  out:
+    description: Output SVG path
+    default: assets/benchmarks.svg
+  font:
+    description: Font family inside ./fonts, for example "quicksand"
+    required: false
+  font_file:
+    description: Explicit TTF/OTF path, bypassing the font catalogue
+    required: false
+  version:
+    description: Release tag such as v2026.10.19-cd5cd87; "auto" follows the action ref or latest
+    default: auto
+  tool_path:
+    description: Use an existing bench-svg binary instead of downloading one
+    required: false
+
+outputs:
+  svg:
+    description: Path of the written SVG
+    value: ${{ steps.render.outputs.svg }}
+  bytes:
+    description: Size of the SVG in bytes
+    value: ${{ steps.render.outputs.bytes }}
+
+runs:
+  using: composite
+  steps:
+    - id: install
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/scripts/install.sh"
+      env:
+        INPUT_VERSION: ${{ inputs.version }}
+        INPUT_TOOL_PATH: ${{ inputs.tool_path }}
+
+    - id: render
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/scripts/render.sh"
+      env:
+        INPUT_INPUT: ${{ inputs.input }}
+        INPUT_FORMAT: ${{ inputs.format }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_OUT: ${{ inputs.out }}
+        INPUT_FONT: ${{ inputs.font }}
+        INPUT_FONT_FILE: ${{ inputs.font_file }}

@@ -1,0 +1,12 @@
+{
+  "schema": "bench-svg/report@1",
+  "meta": { "tool": "bench-svg", "tool_version": "0.1.0", "commit": "a1b2c3d4e5f60718" },
+  "benchmarks": [
+    { "id": "seq-read", "label": "順次読み込み", "unit": "B/s", "value": 2254857830 },
+    { "id": "seq-write", "label": "順次書き込み", "unit": "B/s", "value": 2190433320 },
+    { "id": "rand-read", "label": "ランダム読み込み", "unit": "IOPS", "value": 82400 },
+    { "id": "hash", "label": "ハッシュ計算", "unit": "ns/op", "value": 1240000, "direction": "lower" },
+    { "id": "json", "label": "JSON 解析", "unit": "ns/op", "value": 48200, "direction": "lower" },
+    { "id": "alloc", "label": "メモリ割り当て", "unit": "instr", "value": 812334, "direction": "lower" }
+  ]
+}

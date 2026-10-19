@@ -1,0 +1,8 @@
+{
+  "group_id": "hash",
+  "function_id": "sha256",
+  "value_str": "1MiB",
+  "throughput": null,
+  "full_id": "hash/sha256/1MiB",
+  "directory_name": "sha256/1MiB"
+}

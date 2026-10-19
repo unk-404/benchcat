@@ -1,0 +1,4 @@
+{"name":"file.read.8MiB","throughput":{"value":2.42,"unit":"GiB/s"},"statistics":{"relativeMarginOfError":0.92},"compiler":"jit"}
+{"name":"file.write.8MiB","throughput":{"value":2.31,"unit":"GiB/s"},"statistics":{"relativeMarginOfError":1.04},"compiler":"jit"}
+{"name":"file.read.random4K","throughput":{"value":91000,"unit":"IOPS"},"statistics":{"relativeMarginOfError":1.87},"compiler":"jit"}
+{"name":"pool.read.random4K.w4","throughput":{"value":275000,"unit":"IOPS"},"statistics":{"relativeMarginOfError":3.02},"compiler":"jit"}
