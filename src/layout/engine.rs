@@ -414,10 +414,12 @@ pub fn layout(
             let rows_index = row_indices[cell_index];
             let values = &rows[rows_index].values;
             let count = values.iter().filter(|value| value.present).count().max(1);
-            let (bar_height, gap) = if count == 1 {
-                (10.0, 0.0)
-            } else {
+            // Thickness follows the card layout, not the row: a lone bar in a
+            // comparison card must be as thin as its neighbours.
+            let (bar_height, gap) = if multi_series {
                 (6.0, series_pitch - 6.0)
+            } else {
+                (10.0, 0.0)
             };
             let content = count as f32 * bar_height + (count as f32 - 1.0) * gap;
             let top = card.y + (card.h - content) / 2.0;
