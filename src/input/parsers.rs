@@ -107,12 +107,23 @@ fn jsonl_line(line: &str, name: &str, index: usize) -> Result<Option<Benchmark>,
     if !line.starts_with('{') {
         return Ok(None); // benchmark_test interleaves progress output with JSON.
     }
-    let value: Value = serde_json::from_str(line).map_err(|err| InputError::Parse {
-        path: format!("{name}:{index}"),
-        format: "jsonl",
-        message: err.to_string(),
-    })?;
-    benchmark_or_test(&value, name, index).map(Some)
+    // Canonical records go straight into `Benchmark`; only benchmark_test needs
+    // the `Value` detour for `name`/`throughput`/`statistics`.
+    if line.contains("\"throughput\"") {
+        let value: Value = serde_json::from_str(line).map_err(|err| InputError::Parse {
+            path: format!("{name}:{index}"),
+            format: "jsonl",
+            message: err.to_string(),
+        })?;
+        return benchmark_test_entry(&value, &format!("{name}:{index}")).map(Some);
+    }
+    serde_json::from_str::<Benchmark>(line)
+        .map(Some)
+        .map_err(|err| InputError::Parse {
+            path: format!("{name}:{index}"),
+            format: "jsonl",
+            message: err.to_string(),
+        })
 }
 
 pub(super) fn parse_benchmark_test(text: &str, name: &str) -> Result<Loaded, InputError> {
@@ -165,15 +176,6 @@ fn benchmark_test_line(
         message: err.to_string(),
     })?;
     benchmark_test_entry(&value, &format!("{name}:{index}")).map(Some)
-}
-
-fn benchmark_or_test(value: &Value, name: &str, line: usize) -> Result<Benchmark, InputError> {
-    let located = format!("{name}:{line}");
-    if value.get("throughput").is_some() {
-        benchmark_test_entry(value, &located)
-    } else {
-        benchmark_from_value(value, &located)
-    }
 }
 
 fn benchmark_from_value(value: &Value, name: &str) -> Result<Benchmark, InputError> {
