@@ -5,12 +5,22 @@
 pub struct TextSpec {
     /// `(text, font size)` pairs rendered as stacked lines.
     pub lines: Vec<(String, f32)>,
+    /// Fixed size for a leaf that reserves space without drawing text.
+    pub fixed: Option<(f32, f32)>,
 }
 
 impl TextSpec {
     pub fn line(text: impl Into<String>, size: f32) -> Self {
         Self {
             lines: vec![(text.into(), size)],
+            fixed: None,
+        }
+    }
+
+    pub fn fixed(width: f32, height: f32) -> Self {
+        Self {
+            lines: Vec::new(),
+            fixed: Some((width, height)),
         }
     }
 }
