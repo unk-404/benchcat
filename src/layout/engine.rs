@@ -20,11 +20,6 @@ pub fn layout(
     let multi_series = rows
         .iter()
         .any(|row| row.values.iter().filter(|value| value.present).count() > 1);
-    let series_count = rows
-        .iter()
-        .map(|row| row.values.iter().filter(|value| value.present).count())
-        .max()
-        .unwrap_or(1);
 
     // The number badge is a cat: left pad (over the tail) + digit ink + gap +
     // head + right pad. Widths come from the glyph ink, so a 1-digit badge is
@@ -83,21 +78,15 @@ pub fn layout(
             (count as f32 - 1.0) * series_pitch + 6.0
         }
     };
-    let card_height = if multi_series {
-        let bars = bar_stack_height(series_count);
-        let label_block = font.line_height_px(LABEL_SIZE) + font.line_height_px(NOTE_SIZE);
-        (bars + 20.0)
-            .max(label_block + 18.0)
-            .max(options.card_height)
-    } else {
-        options.card_height
-    };
+    // The floor is the plain single-source card height: a row that draws fewer
+    // bars is shorter than its neighbours, and a row with one bar is exactly as
+    // tall as a single-source card.
 
     // A row is as tall as the bars it actually draws, so a row missing a source
     // is shorter than its neighbours.
     let row_height = |row: &RowPlan| -> f32 {
         if !multi_series {
-            return card_height;
+            return options.card_height;
         }
         let count = row
             .values
@@ -105,6 +94,11 @@ pub fn layout(
             .filter(|value| value.present)
             .count()
             .max(1);
+        // One bar means a single-source row: use the single-source height, not
+        // the height of the fullest row in the card.
+        if count <= 1 {
+            return options.card_height;
+        }
         let bars = bar_stack_height(count);
         let label_block = font.line_height_px(LABEL_SIZE)
             + if row.note.is_some() {
@@ -114,7 +108,7 @@ pub fn layout(
             };
         (bars + 20.0)
             .max(label_block + 18.0)
-            .max(card_height)
+            .max(options.card_height)
             .max(NUMBER_BADGE_HEIGHT + 12.0)
     };
 
@@ -408,7 +402,7 @@ pub fn layout(
                 x: grid_box.location.x,
                 y: card_y,
                 w: grid_box.size.width,
-                h: label_box.size.height.max(card_height),
+                h: label_box.size.height.max(options.card_height),
             };
             let track_full = Rect {
                 x: grid_box.location.x + bar_box.location.x,
@@ -529,7 +523,7 @@ pub fn layout(
             w: footer_box.size.width,
             h: footer_box.size.height,
         },
-        card_height,
+        card_height: options.card_height,
         multi_series,
     };
 
