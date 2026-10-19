@@ -94,8 +94,10 @@ For pull requests, skip the commit and upload `out` as an artifact instead.
 Outputs: `svg`, `bytes` — both appear in the step summary.
 
 Binary resolution: `tool_path` → explicit `version` → the action tag when it is a release tag → the
-latest release. Cached under `RUNNER_TOOL_CACHE/bench-svg/` and verified against the published
-`.sha256`. `BENCH_SVG_RELEASE_BASE` points the download at a mirror.
+latest release. Cached under `RUNNER_TOOL_CACHE/bench-svg/` and verified against the release's
+`SHA256SUMS` (or a per-archive `.sha256` when present). Downloads come from the action's own repository
+(`GITHUB_ACTION_REPOSITORY`), not your repository; `BENCH_SVG_RELEASE_BASE` overrides the release base
+for mirrors.
 
 The action needs no token and no write permission.
 

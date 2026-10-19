@@ -70,9 +70,14 @@ if [[ -x "$bin" ]]; then
   exit 0
 fi
 
-repo="${GITHUB_REPOSITORY:-}"
-[[ -n "$repo" ]] || fail "GITHUB_REPOSITORY is not set"
-base="${BENCH_SVG_RELEASE_BASE:-https://github.com/$repo/releases}"
+# In a consumer workflow GITHUB_REPOSITORY is the caller's repository, not this
+# action's; GITHUB_ACTION_REPOSITORY is the action's own `owner/name`.
+repo="${GITHUB_ACTION_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+base="${BENCH_SVG_RELEASE_BASE:-}"
+if [[ -z "$base" ]]; then
+  [[ -n "$repo" ]] || fail "GITHUB_ACTION_REPOSITORY is not set; pass tool-path or set BENCH_SVG_RELEASE_BASE"
+  base="https://github.com/$repo/releases"
+fi
 if [[ "$version" == "latest" ]]; then
   url="$base/latest/download/bench-svg-$target.tar.gz"
 else
@@ -85,8 +90,20 @@ log "downloading $url"
 curl -fsSL --retry 3 --retry-delay 2 -o "$archive" "$url" ||
   fail "download failed; pass tool-path, or set BENCH_SVG_RELEASE_BASE to a mirror"
 
+# Releases carry a per-archive .sha256 and a combined SHA256SUMS; older ones
+# only have SHA256SUMS, so try the single file first and fall back to the list.
+if [[ "$version" == "latest" ]]; then
+  sums_url="$base/latest/download/SHA256SUMS"
+else
+  sums_url="$base/download/$version/SHA256SUMS"
+fi
+expected=""
 if curl -fsSL --retry 2 -o "$archive.sha256" "$url.sha256" 2>/dev/null; then
-  expected=$(awk '{print $1}' "$archive.sha256")
+  expected=$(awk '{print $1; exit}' "$archive.sha256")
+elif curl -fsSL --retry 2 -o "$archive.sha256" "$sums_url" 2>/dev/null; then
+  expected=$(awk -v name="bench-svg-$target.tar.gz" '$2 == name {print $1; exit}' "$archive.sha256")
+fi
+if [[ -n "$expected" ]]; then
   if command -v sha256sum >/dev/null 2>&1; then
     actual=$(sha256sum "$archive" | awk '{print $1}')
   else
@@ -95,7 +112,7 @@ if curl -fsSL --retry 2 -o "$archive.sha256" "$url.sha256" 2>/dev/null; then
   [[ "$expected" == "$actual" ]] || fail "checksum mismatch for $url"
   log "checksum verified"
 else
-  log "warning: no .sha256 published for this release"
+  log "warning: no checksum published for this release"
 fi
 
 # Extract from inside the directory: an absolute `D:/...` archive name is parsed

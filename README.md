@@ -261,8 +261,9 @@ git, tokens or pull requests.
 | `version` | `auto` | Release tag; `auto` follows the action ref, else `latest` |
 | `tool_path` | — | Use an existing binary, no download |
 
-Outputs: `svg` and `bytes`. The step summary records both. Set `BENCH_SVG_RELEASE_BASE` to a mirror
-when GitHub release downloads are slow.
+Outputs: `svg` and `bytes`. The step summary records both. The binary is downloaded from this action's
+own repository (`GITHUB_ACTION_REPOSITORY`), not the caller's, and its checksum is verified against the
+release. Set `BENCH_SVG_RELEASE_BASE` to a mirror when GitHub release downloads are slow.
 
 Ready-made workflows are in [`templates/`](templates/):
 

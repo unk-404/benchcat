@@ -310,5 +310,24 @@ jobs:
             --target "$GITHUB_SHA" \
             --title "bench-svg $tag" \
             --generate-notes \
-            dist/*.tar.gz dist/SHA256SUMS
+            dist/*.tar.gz dist/*.sha256 dist/SHA256SUMS
           echo "::notice::released $tag"
+
+      # Exercise the exact path a consumer uses: install.sh resolving the action
+      # repository and verifying the release checksum.
+      - name: Smoke-test the published binary
+        shell: bash
+        env:
+          GITHUB_ACTION_REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
+          export INPUT_VERSION="$tag"
+          export RUNNER_TOOL_CACHE="$RUNNER_TEMP/bench-svg-smoke"
+          sleep 5
+          bash scripts/install.sh
+          bin="$RUNNER_TOOL_CACHE/bench-svg/$tag-x86_64-unknown-linux-musl/bench-svg"
+          "$bin" --version
+          "$bin" render examples/bench.jsonl -o target/smoke.svg
+          test -s target/smoke.svg
+          echo "::notice::published binary installs and renders"
