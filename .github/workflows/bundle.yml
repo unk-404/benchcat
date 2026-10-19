@@ -11,6 +11,10 @@ name: bundle
 #               run the action test only and stop.
 #   docs        markdown/LICENSE/.gitignore only: nothing to do.
 #
+# After a release, a `consumer` job uses the action by reference (not `uses: ./`)
+# and installs the freshly published binary, which is the only way to exercise
+# the composite-action download path.
+#
 # Mixed changes run the union (full implies assets and action). Anything the
 # classifier does not recognise falls back to `full`, so a new top-level file
 # can never silently skip the build.
@@ -499,3 +503,44 @@ jobs:
           "$bin" render examples/bench.jsonl -o target/smoke.svg
           test -s target/smoke.svg
           echo "::notice::published binary installs and renders"
+
+  # The composite action never sees GITHUB_ACTION_REPOSITORY inside its steps, so
+  # `uses: ./` cannot catch repository-resolution bugs. This job consumes the
+  # action exactly like a downstream repository does and installs the release
+  # that this run just published.
+  consumer:
+    name: consume the published action
+    needs: [changes, publish]
+    if: ${{ github.event_name != 'pull_request' && needs.changes.outputs.binary == 'true' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Wait for the release asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="v$(date -u +%Y.%m.%d)-${GITHUB_SHA::7}"
+          url="https://github.com/$GITHUB_REPOSITORY/releases/download/$tag/bench-svg-x86_64-unknown-linux-musl.tar.gz"
+          for attempt in 1 2 3 4 5 6; do
+            if curl -fsI "$url" >/dev/null; then exit 0; fi
+            sleep 5
+          done
+          echo "::error::release asset did not become available"
+          exit 1
+
+      - name: Use the action as a consumer would
+        uses: unk-404/benchmark_svg@master
+        with:
+          input: examples/bench.jsonl
+          format: benchmark_test
+          out: target/consumer.svg
+
+      - name: Check the rendered card
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s target/consumer.svg
+          grep -q '<svg' target/consumer.svg
+          echo "::notice::consumer installed the published action and rendered a card"

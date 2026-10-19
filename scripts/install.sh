@@ -71,11 +71,27 @@ if [[ -x "$bin" ]]; then
 fi
 
 # In a consumer workflow GITHUB_REPOSITORY is the caller's repository, not this
-# action's; GITHUB_ACTION_REPOSITORY is the action's own `owner/name`.
-repo="${GITHUB_ACTION_REPOSITORY:-${GITHUB_REPOSITORY:-}}"
+# action's. GitHub leaves GITHUB_ACTION_REPOSITORY empty inside composite-action
+# steps (community discussion #49245), so derive `owner/repo` from the action
+# checkout path instead: <runner>/_actions/<owner>/<repo>/<ref>. A local
+# `uses: ./` has no _actions segment and falls back to GITHUB_REPOSITORY.
+action_repo="${GITHUB_ACTION_REPOSITORY:-}"
+if [[ -z "$action_repo" && -n "${GITHUB_ACTION_PATH:-}" ]]; then
+  action_path="${GITHUB_ACTION_PATH//\\//}"
+  if [[ "$action_path" == */_actions/* ]]; then
+    rest="${action_path#*/_actions/}"
+    owner="${rest%%/*}"
+    rest="${rest#*/}"
+    action_name="${rest%%/*}"
+    if [[ -n "$owner" && -n "$action_name" ]]; then
+      action_repo="$owner/$action_name"
+    fi
+  fi
+fi
+repo="${action_repo:-${GITHUB_REPOSITORY:-}}"
 base="${BENCH_SVG_RELEASE_BASE:-}"
 if [[ -z "$base" ]]; then
-  [[ -n "$repo" ]] || fail "GITHUB_ACTION_REPOSITORY is not set; pass tool-path or set BENCH_SVG_RELEASE_BASE"
+  [[ -n "$repo" ]] || fail "cannot tell which repository hosts this action; pass tool-path or set BENCH_SVG_RELEASE_BASE"
   base="https://github.com/$repo/releases"
 fi
 if [[ "$version" == "latest" ]]; then
