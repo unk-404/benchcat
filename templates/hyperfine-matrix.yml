@@ -1,12 +1,11 @@
 # hyperfine → README SVG, with two platforms compared side by side
 #
-# Replace `OWNER/bench-svg` with the repository that publishes the action.
 
 name: benchmarks
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   measure:
@@ -44,7 +43,7 @@ jobs:
           merge-multiple: true
 
       # One row per command, one bar per platform: the comparison layout.
-      - uses: OWNER/bench-svg@v1
+      - uses: unk-404/benchmark_svg@v1
         with:
           input: bench-ubuntu-latest.json bench-macos-14.json
           format: hyperfine

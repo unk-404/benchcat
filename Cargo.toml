@@ -2,6 +2,14 @@
 name = "bench-svg"
 version = "0.1.0"
 edition = "2024"
+description = "Render benchmark results as a self-contained, pastel SVG card for READMEs"
+readme = "README.md"
+repository = "https://github.com/unk-404/benchmark_svg"
+homepage = "https://github.com/unk-404/benchmark_svg"
+license = "MIT OR Apache-2.0"
+rust-version = "1.85"
+keywords = ["benchmark", "svg", "readme", "chart"]
+categories = ["command-line-utilities", "development-tools::profiling"]
 
 [dependencies]
 clap = { version = "4.6.7", features = ["derive"] }
