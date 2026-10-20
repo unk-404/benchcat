@@ -225,7 +225,9 @@ Values come from the input document plus `GITHUB_SHA`, `RUNNER_OS` and `RUNNER_A
 | Space Grotesk | `space-grotesk.ttf` | Latin | 133 KB |
 
 Each family ships its `-OFL.txt` next to the binary, and a type specimen under
-`assets/fonts/<file-stem>.svg`. Specimens draw every glyph the face cannot provide as a small pastel
+`assets/fonts/<file-stem>.svg`. After the assets job, CI mirrors the specimens to the repository's
+`Fonts` wiki page (one heading per family, images linked from this repository). The wiki has to be
+created once by hand; until then the job skips. Specimens draw every glyph the face cannot provide as a small pastel
 cat, and keep the row for a script with no coverage at all.
 
 ## Examples

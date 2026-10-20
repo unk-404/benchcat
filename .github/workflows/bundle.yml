@@ -11,7 +11,11 @@ name: bundle
 #               run the action test only and stop.
 #   docs        markdown/LICENSE/.gitignore only: nothing to do.
 #
-# After a release, a `consumer` job uses the action by reference (not `uses: ./`)
+# After the assets job, a `wiki` job refreshes the repository's Fonts wiki page
+# with one heading and specimen per family. The wiki must exist once; the script
+# skips with a notice until then.
+#
+# A `consumer` job after publish uses the action by reference (not `uses: ./`)
 # and installs the freshly published binary, which is the only way to exercise
 # the composite-action download path.
 # Mixed changes run the union (full implies assets and action). Anything the
@@ -292,6 +296,24 @@ jobs:
             assets/fonts/*.svg
           if-no-files-found: error
           retention-days: 7
+
+  wiki:
+    name: publish font specimens to the wiki
+    needs: [changes, assets]
+    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.assets.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Update the wiki Fonts page
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+        run: bash scripts/wiki-fonts.sh
 
   # The action is the product: install script, render script, inputs and outputs.
   # It builds its own debug binary, so it runs in parallel with verify.

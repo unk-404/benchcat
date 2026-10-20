@@ -253,6 +253,11 @@ comparing bytes. Every cargo invocation uses `--locked`, so a manifest change wi
 fails instead of silently resolving a new graph. The action job also runs `scripts/install.sh` against
 the latest release, so installer changes are tested without a rebuild.
 
+The `wiki` job runs after `assets` on pushes: it clones `${repo}.wiki.git`, rewrites `Fonts.md` with one
+heading and specimen per family (linking the raw `assets/fonts/*.svg` URLs) and pushes only when the page
+changed. The wiki must be initialized once by hand; before that the script exits with a notice. Set a
+`WIKI_TOKEN` secret only if the default `GITHUB_TOKEN` cannot push the wiki.
+
 ## Where to change what
 
 | Want | Touch |
