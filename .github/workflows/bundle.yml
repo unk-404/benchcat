@@ -159,7 +159,15 @@ jobs:
         run: cargo test --all-targets --locked
 
       - name: Render one card per platform
-        run: cargo run --locked --quiet -- render examples/bench.jsonl -o target/bench.svg
+        shell: bash
+        run: |
+          # The CLI fills missing meta.commit/os/arch from GITHUB_SHA,
+          # RUNNER_OS and RUNNER_ARCH, so each runner would embed its own
+          # platform into the card. Unset them here: the byte comparison is
+          # about the renderer being a pure function of the input, not about
+          # suppressing provenance in normal runs.
+          env -u GITHUB_SHA -u RUNNER_OS -u RUNNER_ARCH \
+            cargo run --locked --quiet -- render examples/bench.jsonl -o target/bench.svg
 
       - uses: actions/upload-artifact@v7
         if: success()
