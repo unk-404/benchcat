@@ -49,9 +49,11 @@ Logs go to stderr, so `-o -` stays a clean SVG stream. Keep hot-loop logging out
 
 ## Map types
 
-The model uses std `BTreeMap` for `params`/`metrics`/`extra`: those maps are tiny, and an A/B run with
-the render benchmark showed the bbtree-backed alternative ~20% slower on parse/full because every row
-would allocate a 1 KB page on first insert.
+`params`/`metrics`/`extra` use `SmallMap` (`src/small_map.rs`): a sorted `Vec` with binary-search
+insert/get and hand-written serde. A row has 0-3 entries, where `BTreeMap` pays a node allocation and
+`IndexMap` pays a hash-table allocation; the microbench shows `SmallMap` ~2x faster than `BTreeMap` for
+one entry, ~1.4x for three, and ~20-25% faster serde parsing. Sorted order is part of the contract
+(deterministic note text and serialization), so do not swap it for an insertion-ordered map.
 
 Numeric-key `HashMap`s use `hash::BuildIdentity` (see `svg/atlas.rs`, `examples/specimen.rs`); string-key
 maps use `hashbrown`. The font caches are `DashMap`, not `Mutex<HashMap>`.
