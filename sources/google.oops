@@ -1,0 +1,25 @@
+@version 1
+
+source google {
+    aliases ["google-benchmark", "gbench", "c++"];
+    extensions ["json"];
+
+    detect json "$.benchmarks.*.real_time";
+
+    parse json {
+        rows "$.benchmarks";
+
+        id: str("name");
+        label: drop_last(str("name"), "/");
+        value: first(num("cpu_time"), num("real_time")) * time_scale(str("time_unit"));
+        unit: "ns/op";
+        direction: lower;
+
+        params {
+            iterations: num("iterations")
+        }
+        metrics {
+            bytes_per_second: num("bytes_per_second")
+        }
+    }
+}

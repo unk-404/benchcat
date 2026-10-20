@@ -83,8 +83,8 @@ jobs:
 
           # Only Rust example sources are build inputs. Data under examples/
           # (gallery inputs, rows.toml, criterion fixtures) only needs assets.
-          rust='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|examples/.*\.rs$|\.cargo/|rust-toolchain|\.gitattributes$)'
-          known='^(fonts/|assets/|.*\.md$|LICENSE|\.gitignore$|scripts/|action\.yml$|templates/|\.github/|examples/)'
+          rust='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|crates/.*\.rs$|crates/.*\.pest$|crates/.*/Cargo\.toml$|crates/.*/build\.rs$|examples/.*\.rs$|sources/.*\.oops$|\.cargo/|rust-toolchain|\.gitattributes$)'
+          known='^(fonts/|assets/|.*\.md$|LICENSE|\.gitignore$|scripts/|action\.yml$|templates/|\.github/|examples/|crates/|sources/)'
 
           classify() {
             local from="$1" to="$2"

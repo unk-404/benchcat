@@ -1,0 +1,21 @@
+@version 1
+
+source techempower {
+    aliases ["tfb", "techempower-framework-benchmarks"];
+    extensions ["json"];
+
+    detect json "$.rawData";
+
+    parse json {
+        rows "$.rawData.*.*.results";
+
+        id: concat(ctx(0), "/", ctx(1));
+        group: ctx(0);
+        label: ctx(1);
+        value: first(num("requestsPerSecond"), num("totalRequests") / ((num("endTime") - num("startTime")) / 1000));
+        unit: "req/s";
+        direction: higher;
+    }
+
+    dedupe = max;
+}

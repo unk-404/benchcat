@@ -11,20 +11,31 @@ it, not using it.
 ## Layout
 
 ```
-src/
-  lib.rs            module wiring + re-exports
-  main.rs           clap CLI: `render`, `formats`
-  config.rs         benchcat.toml via config-rs (file + BENCHCAT_RENDER__*/FONT__*)
-  model/            Benchmark, Meta, Report, Unit, UnitKind, formatting
-  input/            format detection + json/jsonl/csv/benchmark_test readers
-  adapters/         criterion directory and hyperfine JSON importers
-  font/             metrics, outline extraction, file resolution
-  layout/           pure geometry: taffy tree, badges, sections, row heights
-  svg/              emission: writer, theme, atlas, text, rows, legend, cat badge
-  render/           orchestration: series union, bar scaling, placeholders
-  rows.rs           [[row]] matching, captures, expressions
-  expr.rs           arithmetic used by row `value`
-  template.rs       `{placeholder|fallback}` expansion
+Cargo.toml                 workspace
+crates/benchcat/
+  src/
+    lib.rs                 module wiring + re-exports
+    main.rs                clap CLI: `render`, `formats`
+    config.rs              benchcat.toml via config-rs (file + BENCHCAT_RENDER__*/FONT__*)
+    source.rs              SourceDef ABI + compiled-code helpers
+    sources.rs             generated source registry
+    model/                 Benchmark, Meta, Report, Unit, UnitKind, formatting
+    input/                 format detection + json/jsonl/csv/benchmark_test readers
+    adapters/              criterion directory and hyperfine JSON importers
+    font/                  metrics, outline extraction, file resolution
+    layout/                pure geometry: taffy tree, badges, sections, row heights
+    svg/                   emission: writer, theme, atlas, text, rows, legend, cat badge
+    render/                orchestration: series union, bar scaling, placeholders
+    rows.rs / expr.rs / template.rs
+  examples/                 Rust example code (data lives in the root examples/)
+  benches/
+crates/source-gen/
+  src/lib.rs               .oops scanner + @version dispatch
+  src/compiler/mod.rs      version -> compiler
+  src/compiler/v1/         frozen v1 grammar/AST/checks/codegen
+sources/                   versioned .oops presets
+docs/spec/                 normative OOPS and versioning specifications
+fonts/, assets/            runtime catalogue and committed generated assets
 ```
 
 Dependencies only flow downwards: `render` -> `layout` -> `svg` -> `font`/`model`. `layout` must not
@@ -82,8 +93,8 @@ global `RwLock` around those caches.
 ```bash
 cargo fmt --all -- --check
 cargo clippy --all-targets -- -D warnings
-cargo test --all-targets                       # 34 tests
-cargo run --example gallery -- --only 14 --png # one asset while iterating
+cargo test --workspace                         # all tests
+cargo run --example gallery -- --only 14 --png  # one asset while iterating
 cargo run --example specimen -- --font quicksand
 cargo run --example gallery                    # full regeneration (final round)
 git status --short -- assets                   # must be empty when nothing changed
@@ -254,7 +265,7 @@ A `changes` job classifies the pushed range (or the PR merge base) and sizes the
 
 | changed paths | runs |
 |---|---|
-| `Cargo.toml`, `Cargo.lock`, `src/`, `examples/**/*.rs`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
+| `Cargo.toml`, `Cargo.lock`, `crates/**/*.rs`, `crates/**/Cargo.toml`, `sources/**/*.oops`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
 | `fonts/`, `assets/`, example data (`examples/**` except `.rs`) | assets only (fonts are runtime inputs, not compiled in) |
 | `scripts/`, `action.yml`, `templates/`, `.github/` | the action test only |
 | markdown, `LICENSE`, `.gitignore` | nothing beyond classification |

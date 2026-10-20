@@ -88,7 +88,7 @@ For pull requests, skip the commit and upload `out` as an artifact instead.
 | input | default | meaning |
 |---|---|---|
 | `input` | — | files or directories, space/newline separated; optional when the config defines `[[series]]` |
-| `format` | `auto` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
+| `format` | `auto` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine`, `go`, `phpbench`, `jmh`, `google`, `google-console`, `swift`, `techempower`, `androidx`, `benchmark-test-human`, `benchmark-test-benchmarkjs`, `benchmark-runner` |
 | `config` | — | `benchcat.toml`; auto-discovered when omitted |
 | `out` | `assets/benchmarks.svg` | output path |
 | `font` | — | one or more bundled catalogue families, comma separated, e.g. `quicksand,zcool-kuaile` |
@@ -112,12 +112,24 @@ The action needs no token and no write permission.
 |---|---|---|
 | criterion (`cargo bench`) | `target/criterion` (directory) | `criterion` |
 | hyperfine `--export-json` | the JSON file | `hyperfine` |
+| Go testing | `go test -bench . -benchmem` console output | `go` |
+| JMH / kotlinx-benchmark | `-rf json` (kotlinx default JSON) | `jmh` / `kotlinx` |
+| Google Benchmark | `--benchmark_format=json` or console table | `google` / `google-console` |
+| swift-benchmark | `--format json` | `swift` |
+| PHPBench | `phpbench run --output=json` | `phpbench` |
+| TechEmpower | `results.json` | `techempower` |
+| AndroidX Benchmark | `benchmarkData.json` | `androidx` |
+| `benchmark_test` human | default CLI output | `benchmark-test-human` |
+| `benchmark_test` BenchmarkJS | `--output=benchmarkjs` | `benchmark-test-benchmarkjs` |
+| `benchmark_test` JSONL | `--output=jsonl` | `benchmark_test` |
+| `benchmark_runner` | exported stdout / report | `benchmark-runner` |
 | Dart `benchmark_test` | the JSONL file | `benchmark_test` |
 | anything else | canonical JSON / CSV you emit | `json` / `jsonl` / `csv` |
 | unknown | — | `auto` |
 
 Directory inputs are read recursively in sorted order. `format` also accepts the aliases `ndjson`,
-`dart`, `canonical` and `cargo-criterion`.
+`dart`, `canonical`, `cargo-criterion`, `java`, `kotlinx`, `gbench`, `c++`, `tfb` and
+`android-benchmark`. Source presets live in `sources/*.oops`; see `sources/README.md`.
 
 Canonical shape (`benchcat/report@1`):
 

@@ -1,0 +1,24 @@
+@version 1
+
+source google-console {
+    aliases ["google-benchmark-console"];
+    extensions ["txt", "log"];
+
+    detect prefix "BM_";
+
+    parse columns {
+        split: whitespace;
+        require_first: "BM_";
+
+        columns {
+            name: 0,
+            value: 1,
+            unit: 2
+        }
+
+        id: str("name");
+        value: num("value") * time_scale(str("unit"));
+        unit: "ns/op";
+        direction: lower;
+    }
+}

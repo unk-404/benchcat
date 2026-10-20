@@ -1,0 +1,25 @@
+@version 1
+
+source androidx {
+    aliases ["androidx-benchmark", "android-benchmark"];
+    extensions ["json"];
+
+    detect json "$.benchmarks.*.className";
+
+    parse json {
+        rows "$.benchmarks";
+
+        id: concat(str("className"), ".", str("name"));
+        group: str("className");
+        label: str("name");
+        value: first(num("metrics.timeNs.median"), num("metrics.frameDurationCpuMs.median"));
+        unit: if(has("metrics.timeNs.median"), "ns/op", "ms/op");
+        direction: unit;
+
+        stats {
+            median: first(num("metrics.timeNs.median"), num("metrics.frameDurationCpuMs.median")),
+            min: first(num("metrics.timeNs.minimum"), num("metrics.frameDurationCpuMs.minimum")),
+            max: first(num("metrics.timeNs.maximum"), num("metrics.frameDurationCpuMs.maximum"))
+        }
+    }
+}

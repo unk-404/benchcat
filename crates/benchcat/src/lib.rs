@@ -16,6 +16,8 @@ pub mod model;
 pub mod render;
 pub mod rows;
 pub mod small_map;
+pub mod source;
+pub mod sources;
 pub mod svg;
 pub mod template;
 

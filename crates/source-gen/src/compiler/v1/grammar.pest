@@ -1,0 +1,59 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
+source = { SOI ~ "source" ~ ident ~ "{" ~ item* ~ "}" ~ EOI }
+item = { aliases | extensions | detect | parse | dedupe }
+
+aliases = { "aliases" ~ string_array ~ ";" }
+extensions = { "extensions" ~ string_array ~ ";" }
+string_array = { "[" ~ (string ~ ("," ~ string)*)? ~ ","? ~ "]" }
+
+detect = { "detect" ~ (any_detect | text_detect | prefix_detect | contains_detect | json_detect | csv_detect | toml_detect | directory_detect) ~ ";" }
+text_detect = { "text" ~ regex }
+prefix_detect = { "prefix" ~ string }
+contains_detect = { "contains" ~ string }
+any_detect = { "any" ~ string_array }
+json_detect = { "json" ~ string }
+csv_detect = { "csv" ~ string }
+toml_detect = { "toml" ~ string }
+directory_detect = { "directory" ~ ident }
+
+parse = { "parse" ~ (line_parse | records_parse | columns_parse | text_parse | json_parse | jsonl_parse | csv_parse | toml_parse | directory_parse) }
+line_parse = { "line" ~ "{" ~ "name" ~ ":" ~ name_mode ~ ";" ~ "extract" ~ extract_list ~ parse_item* ~ "}" }
+records_parse = { "records" ~ "{" ~ "start" ~ ":" ~ string ~ ";" ~ "name" ~ ":" ~ name_mode ~ ";" ~ "extract" ~ extract_list ~ parse_item* ~ "}" }
+name_mode = { "rest" | "before" ~ string | "after" ~ string }
+extraction = { ident ~ ":" ~ ("number_before" | "number_after" | "unit_after") ~ string }
+extract_list = { "{" ~ (extraction ~ ("," ~ extraction)* ~ ","?)? ~ "}" }
+columns_parse = { "columns" ~ "{" ~ "split" ~ ":" ~ ident ~ ";" ~ "require_first" ~ ":" ~ string ~ ";" ~ "columns" ~ columns_list ~ parse_item* ~ "}" }
+columns_list = { "{" ~ (column ~ ("," ~ column)* ~ ","?)? ~ "}" }
+column = { ident ~ ":" ~ number }
+text_parse = { "text" ~ "{" ~ "rows" ~ regex ~ ";" ~ parse_item* ~ "}" }
+json_parse = { "json" ~ "{" ~ "rows" ~ string ~ ";" ~ parse_item* ~ "}" }
+jsonl_parse = { "jsonl" ~ "{" ~ "rows" ~ string ~ ";" ~ parse_item* ~ "}" }
+csv_parse = { "csv" ~ "{" ~ parse_item* ~ "}" }
+toml_parse = { "toml" ~ "{" ~ "rows" ~ string ~ ";" ~ parse_item* ~ "}" }
+directory_parse = { "directory" ~ ident ~ "{" ~ "adapter" ~ "=" ~ ident ~ ";" ~ "}" }
+
+parse_item = { field | block }
+field = { field_name ~ ":" ~ expr ~ ";" }
+field_name = { "id" | "label" | "group" | "note" | "value" | "unit" | "direction" }
+block = { block_name ~ "{" ~ (pair ~ ("," ~ pair)* ~ ","?)? ~ "}" }
+block_name = { "params" | "metrics" | "stats" }
+pair = { ident ~ ":" ~ expr }
+dedupe = { "dedupe" ~ "=" ~ ident ~ ";" }
+
+expr = { term ~ (add_op ~ term)* }
+term = { factor ~ (mul_op ~ factor)* }
+factor = { "(" ~ expr ~ ")" | call | string | number | boolean | ident }
+add_op = { "+" | "-" }
+mul_op = { "*" | "/" }
+call = { func ~ "(" ~ (expr ~ ("," ~ expr)*)? ~ ")" }
+func = @{
+    "strip_prefix" | "drop_last" | "time_scale" | "percent" |
+    "concat" | "first" | "num" | "str" | "if" | "has" | "ctx" | "last"
+}
+boolean = { "true" | "false" }
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? ~ (("e" | "E") ~ ("+" | "-")? ~ ASCII_DIGIT+)? }
+string = ${ "\"" ~ (("\\" ~ ANY) | (!"\"" ~ ANY))* ~ "\"" }
+regex = ${ "/" ~ (("\\" ~ ANY) | (!"/" ~ ANY))* ~ "/" }
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_" | "-")* }

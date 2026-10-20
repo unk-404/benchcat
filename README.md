@@ -10,7 +10,7 @@ stops there — committing it, uploading it, or commenting it on a pull request 
 ## Install
 
 ```bash
-cargo install --path .
+cargo install --path crates/benchcat
 ```
 
 Or download a prebuilt binary from Releases (`benchcat-<target>.tar.gz`, checksums in `SHA256SUMS`).
@@ -30,6 +30,12 @@ benchcat render report.json       -o assets/bench.svg                 # canonica
 benchcat render results.csv       -o assets/bench.svg                 # CSV
 benchcat render target/criterion  -o assets/bench.svg --format criterion
 benchcat render bench.json        -o assets/bench.svg --format hyperfine
+benchcat render go-bench.txt      -o assets/bench.svg                 # Go testing
+benchcat render jmh.json          -o assets/bench.svg                 # JMH / kotlinx-benchmark
+benchcat render google.json       -o assets/bench.svg                 # Google Benchmark JSON
+benchcat render swift.json        -o assets/bench.svg                 # swift-benchmark JSON
+benchcat render bt-human.txt      -o assets/bench.svg                 # benchmark_test human
+benchcat render runner.txt        -o assets/bench.svg                 # benchmark_runner
 ```
 
 Same inputs produce the same bytes, so a committed SVG only changes when the data does:
@@ -40,8 +46,14 @@ git diff --quiet -- assets/bench.svg || git commit -am "bench: refresh [skip ci]
 
 ## Input
 
-`--format` accepts `auto` (default), `json`, `jsonl`, `csv`, `benchmark_test`, `criterion` and
-`hyperfine`. Directories are walked recursively; criterion's `report/` folder is skipped.
+`--format` accepts `auto` (default), `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`,
+`hyperfine`, and the preset formats `go`, `phpbench`, `jmh` (alias `kotlinx`), `google`,
+`google-console`, `swift`, `techempower`, `androidx`, `benchmark-test-human`,
+`benchmark-test-benchmarkjs` and `benchmark-runner`. Directories are walked recursively;
+criterion's `report/` folder is skipped.
+
+Source presets live in [`sources/*.oops`](sources/README.md) and are compiled into the binary at
+build time by `benchcat-source-gen`; adding a format does not require touching the Rust input code.
 
 Canonical shape, `benchcat/report@1`:
 
@@ -92,13 +104,34 @@ benchcat render bench.json -o assets/bench.svg --format hyperfine
 Reads `--export-json` v2 (and the legacy v1 shape), using the wall-clock mean with lower-is-better;
 seconds are formatted as ms/µs.
 
+### Go, JMH, Google Benchmark, Swift, PHPBench, TechEmpower, AndroidX, Dart
+
+| Producer | Typical command / file | `--format` |
+|---|---|---|
+| Go | `go test -bench . -benchmem > bench.txt` | `go` |
+| JMH | `-rf json -rff jmh.json` | `jmh` |
+| kotlinx-benchmark | default JSON report | `jmh` (`kotlinx`) |
+| Google Benchmark | `--benchmark_format=json` | `google` |
+| Google Benchmark console | copy the `BM_...` table | `google-console` |
+| swift-benchmark | `--format json` | `swift` |
+| PHPBench | `phpbench run --output=json` | `phpbench` |
+| TechEmpower | `results.json` from the framework runner | `techempower` |
+| AndroidX Benchmark | `benchmarkData.json` | `androidx` |
+| `benchmark_test` human | default CLI output | `benchmark-test-human` |
+| `benchmark_test` BenchmarkJS | `--output=benchmarkjs` | `benchmark-test-benchmarkjs` |
+| `benchmark_test` JSONL | `--output=jsonl` | `benchmark_test` |
+| `benchmark_runner` | exported stdout / report | `benchmark-runner` |
+
+All of these are auto-detected from the file content. See [`sources/README.md`](sources/README.md) for
+the preset syntax.
+
 ## CLI
 
 | Flag | Meaning |
 |---|---|
 | `INPUT...` | Files or directories |
 | `--out <FILE>` | Output path; `-` writes to stdout |
-| `--format <FORMAT>` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
+| `--format <FORMAT>` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine`, `go`, `phpbench`, `jmh`, `google`, `google-console`, `swift`, `techempower`, `androidx`, `benchmark-test-human`, `benchmark-test-benchmarkjs`, `benchmark-runner` |
 | `--config <FILE>` | Defaults to `./benchcat.toml` when present |
 | `--font <NAME>` | Family inside `./fonts` (or `BENCHCAT_FONT_DIR`), e.g. `quicksand` |
 | `--font-file <FILE>` | Explicit TTF/OTF path |

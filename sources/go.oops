@@ -1,0 +1,30 @@
+@version 1
+
+source go {
+    aliases ["go-test", "gotest"];
+    extensions ["txt", "bench", "log"];
+
+    detect prefix "Benchmark";
+
+    parse columns {
+        split: whitespace;
+        require_first: "Benchmark";
+
+        columns {
+            name: 0,
+            iterations: 1,
+            value: 2,
+            unit: 3
+        }
+
+        id: str("name");
+        label: strip_prefix(drop_last(str("name"), "-"), "Benchmark");
+        value: num("value");
+        unit: str("unit");
+        direction: lower;
+
+        params {
+            iterations: num("iterations")
+        }
+    }
+}

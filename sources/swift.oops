@@ -1,0 +1,31 @@
+@version 1
+
+source swift {
+    aliases ["swift-benchmark"];
+    extensions ["json"];
+
+    detect json "$.benchmarks.*.time";
+
+    parse json {
+        rows "$.benchmarks";
+
+        id: str("name");
+        label: last(str("name"), ".");
+        group: drop_last(str("name"), ".");
+        value: num("time");
+        unit: "ns/op";
+        direction: lower;
+
+        params {
+            iterations: num("iterations")
+        }
+        metrics {
+            std: num("std")
+        }
+        stats {
+            median: num("median"),
+            min: num("min"),
+            max: num("max")
+        }
+    }
+}

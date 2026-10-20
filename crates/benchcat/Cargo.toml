@@ -1,0 +1,43 @@
+[package]
+name = "benchcat"
+version = "0.1.0"
+edition = "2024"
+description = "Render benchmark results as a self-contained, pastel SVG card for READMEs"
+readme = "../../README.md"
+repository.workspace = true
+homepage = "https://github.com/unk-404/benchcat"
+license.workspace = true
+rust-version.workspace = true
+keywords = ["benchmark", "svg", "readme", "chart"]
+categories = ["command-line-utilities", "development-tools::profiling"]
+
+[dependencies]
+benchcat-source-gen = { path = "../source-gen" }
+clap = { version = "4.6.7", features = ["derive"] }
+config = { version = "0.15.25", default-features = false, features = ["toml"] }
+csv = "1.4.0"
+dashmap = "6.2.1"
+hashbrown = { version = "0.17.1", features = ["default-hasher"] }
+libm = "0.2.16"
+rayon = "1.12.0"
+regex = "1.13.1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+skrifa = "0.48.0"
+taffy = "0.15.0"
+thiserror = "2.0.21"
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[dev-dependencies]
+resvg = "0.48.1"
+
+[target.'cfg(not(target_env = "musl"))'.dependencies]
+mimalloc = { version = "0.1.52", default-features = false }
+
+[[bench]]
+name = "render"
+# Development-only; cargo bench --bench render. CI tests explicit targets and
+# never runs it.
+harness = false

@@ -1,0 +1,29 @@
+@version 1
+
+source benchmark-test-benchmarkjs {
+    aliases ["benchmark-js", "dart-benchmarkjs"];
+    extensions ["txt", "log"];
+
+    detect contains " x ";
+
+    parse line {
+        name: before " x ";
+
+        extract {
+            value: number_before " ops/sec",
+            rme: number_before "%",
+            samples: number_before "runs sampled"
+        }
+
+        id: str("name");
+        label: str("name");
+        value: num("value");
+        unit: "ops/s";
+        direction: higher;
+
+        stats {
+            rme_pct: num("rme"),
+            samples: num("samples")
+        }
+    }
+}

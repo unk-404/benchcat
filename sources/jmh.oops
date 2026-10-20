@@ -1,0 +1,25 @@
+@version 1
+
+source jmh {
+    aliases ["java", "kotlinx", "kotlinx-benchmark"];
+    extensions ["json"];
+
+    detect json "$.primaryMetric";
+
+    parse json {
+        rows "$";
+
+        id: str("benchmark");
+        label: last(str("benchmark"), ".");
+        group: drop_last(str("benchmark"), ".");
+        value: num("primaryMetric.score");
+        unit: str("primaryMetric.scoreUnit");
+        direction: unit;
+
+        params {
+            threads: num("threads"),
+            forks: num("forks"),
+            mode: str("mode")
+        }
+    }
+}

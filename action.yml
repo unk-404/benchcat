@@ -11,7 +11,7 @@ inputs:
     description: Files or directories to render, separated by spaces or newlines (omit when the config defines [[series]])
     required: false
   format:
-    description: auto, json, jsonl, csv, benchmark_test, criterion, hyperfine
+    description: auto, json, jsonl, csv, benchmark_test, criterion, hyperfine, go, phpbench, jmh, google, google-console, swift, techempower, androidx, benchmark-test-human, benchmark-test-benchmarkjs, benchmark-runner
     default: auto
   config:
     description: Path to benchcat.toml (auto-discovered in the working directory)

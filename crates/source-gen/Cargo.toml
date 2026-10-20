@@ -1,0 +1,17 @@
+﻿[package]
+name = "benchcat-source-gen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Versioned build-time compiler for benchcat .src files"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+pest = "2.8"
+pest_derive = "2.8"
+proc-macro2 = "1"
+quote = "1"
+regex = "1.13"

@@ -1,0 +1,34 @@
+@version 1
+
+source benchmark-runner {
+    aliases ["dart-benchmark-runner"];
+    extensions ["txt", "log"];
+
+    detect contains "mean:";
+
+    parse records {
+        start: "[";
+        name: after "]";
+
+        extract {
+            value: number_before "±",
+            std: number_after "±",
+            median: number_after "median:",
+            samples: number_after "sample size:",
+            unit: unit_after "±"
+        }
+
+        id: concat(str("name"), " [", str("unit"), "]");
+        group: drop_last(str("name"), ":");
+        label: strip_prefix(last(str("name"), ":"), " ");
+        value: num("value");
+        unit: str("unit");
+        direction: unit;
+
+        stats {
+            median: num("median"),
+            stddev: num("std"),
+            samples: num("samples")
+        }
+    }
+}

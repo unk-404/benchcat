@@ -1,0 +1,11 @@
+@version 1
+
+source criterion {
+    aliases ["cargo-criterion"];
+
+    detect directory criterion;
+
+    parse directory criterion {
+        adapter = criterion;
+    }
+}

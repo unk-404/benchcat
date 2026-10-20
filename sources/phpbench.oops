@@ -1,0 +1,23 @@
+@version 1
+
+source phpbench {
+    aliases ["php-bench"];
+    extensions ["json"];
+
+    detect any ["subject", "range"];
+
+    parse jsonl {
+        rows "$";
+
+        id: first(str("name"), concat(str("benchmark"), "::", str("subject")));
+        group: str("benchmark");
+        label: first(str("subject"), str("name"));
+        value: first(num("value"), num("mean"), num("mode"));
+        unit: first(str("unit"), str("subject_time_unit"), "us");
+        direction: unit;
+
+        stats {
+            rme_pct: percent(str("range"))
+        }
+    }
+}

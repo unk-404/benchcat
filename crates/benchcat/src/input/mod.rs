@@ -25,6 +25,8 @@ pub enum Format {
     Criterion,
     /// `hyperfine --export-json` output.
     Hyperfine,
+    /// A source registered by `src/sources/*.rs`.
+    Source(&'static str),
 }
 
 impl Format {
@@ -37,12 +39,12 @@ impl Format {
             "benchmark_test" | "benchmark-test" | "dart" => Some(Self::BenchmarkTest),
             "criterion" | "cargo-criterion" => Some(Self::Criterion),
             "hyperfine" => Some(Self::Hyperfine),
-            _ => None,
+            _ => crate::sources::find(value.trim()).map(|source| Self::Source(source.name)),
         }
     }
 
-    pub const fn all() -> &'static [&'static str] {
-        &[
+    pub fn all() -> Vec<&'static str> {
+        let mut names = vec![
             "auto",
             "json",
             "jsonl",
@@ -50,7 +52,13 @@ impl Format {
             "benchmark_test",
             "criterion",
             "hyperfine",
-        ]
+        ];
+        for source in crate::sources::SOURCES {
+            if !names.contains(&source.name) {
+                names.push(source.name);
+            }
+        }
+        names
     }
 }
 
@@ -89,6 +97,28 @@ pub fn load(paths: &[PathBuf], format: Format) -> Result<Loaded, InputError> {
     let mut files = Vec::new();
 
     for path in paths {
+        // A registered directory source (currently criterion) is a tree, not
+        // a single document.
+        let directory_source = match format {
+            Format::Source(name) => crate::sources::find(name)
+                .filter(|source| source.detect_dir.is_some_and(|detect| detect(path))),
+            _ => crate::sources::find_dir(path),
+        };
+        if let Some(source) = directory_source {
+            let parser = source.parse_dir.expect("checked parse_dir");
+            let mut parsed = parser(path).map_err(|message| InputError::Parse {
+                path: path.display().to_string(),
+                format: source.name,
+                message,
+            })?;
+            parsed
+                .meta
+                .tool
+                .get_or_insert_with(|| source.name.to_owned());
+            loaded.benchmarks.extend(parsed.benchmarks);
+            loaded.sources.push(path.display().to_string());
+            continue;
+        }
         // A criterion output directory is a tree of estimates, not a document.
         if format == Format::Criterion || (format == Format::Auto && is_criterion_dir(path)) {
             let records =
@@ -170,7 +200,7 @@ fn parse_path(file: &Path, format: Format) -> Result<Loaded, InputError> {
 
 /// True when `path` looks like a criterion output tree, i.e. it contains at
 /// least one `.../new/estimates.json`.
-fn is_criterion_dir(path: &Path) -> bool {
+pub(crate) fn is_criterion_dir(path: &Path) -> bool {
     if !path.is_dir() {
         return false;
     }
@@ -236,7 +266,7 @@ fn is_data_file(path: &Path) -> bool {
     match path.extension().and_then(|ext| ext.to_str()) {
         Some(ext) => matches!(
             ext.to_ascii_lowercase().as_str(),
-            "json" | "jsonl" | "ndjson" | "csv" | "tsv"
+            "json" | "jsonl" | "ndjson" | "csv" | "tsv" | "txt" | "bench" | "log" | "out"
         ),
         None => false,
     }
@@ -245,7 +275,10 @@ fn is_data_file(path: &Path) -> bool {
 fn parse_file(text: &str, path: &Path, format: Format) -> Result<Loaded, InputError> {
     let name = path.display().to_string();
     let detected = match format {
-        Format::Auto => detect(text, path),
+        Format::Auto => match crate::sources::detect(text) {
+            Some(source) => Format::Source(source.name),
+            None => detect(text, path),
+        },
         other => other,
     };
     let mut loaded = match detected {
@@ -254,6 +287,18 @@ fn parse_file(text: &str, path: &Path, format: Format) -> Result<Loaded, InputEr
         Format::Csv => parse_csv(text, &name)?,
         Format::BenchmarkTest => parse_benchmark_test(text, &name)?,
         Format::Hyperfine => parse_json(text, &name)?,
+        Format::Source(source_name) => {
+            let source = crate::sources::find(source_name).ok_or_else(|| InputError::Parse {
+                path: name.clone(),
+                format: "source",
+                message: format!("unknown source {source_name:?}"),
+            })?;
+            (source.parse)(text).map_err(|message| InputError::Parse {
+                path: name.clone(),
+                format: source.name,
+                message,
+            })?
+        }
         Format::Criterion => {
             return Err(InputError::Parse {
                 path: name,
@@ -267,6 +312,7 @@ fn parse_file(text: &str, path: &Path, format: Format) -> Result<Loaded, InputEr
         loaded.meta.tool = Some(match detected {
             Format::BenchmarkTest => "benchmark_test".to_owned(),
             Format::Csv => "csv".to_owned(),
+            Format::Source(source) => source.to_owned(),
             _ => "benchcat".to_owned(),
         });
     }
@@ -283,6 +329,13 @@ fn detect(text: &str, path: &Path) -> Format {
     // Byte-order marks are common when a file is produced by PowerShell or
     // Excel; they must not change how the document is detected.
     let trimmed = text.strip_prefix('\u{feff}').unwrap_or(text).trim_start();
+    // benchmark_test may interleave progress lines before JSONL records.
+    if text
+        .lines()
+        .any(|line| line.trim_start().starts_with('{') && line.contains("\"throughput\""))
+    {
+        return Format::BenchmarkTest;
+    }
     if trimmed.starts_with('[') || trimmed.starts_with('{') {
         // A whole-document JSON object, or a stream of JSONL objects.
         if trimmed.starts_with('{') && looks_like_jsonl(trimmed) {

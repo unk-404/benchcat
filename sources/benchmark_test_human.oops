@@ -1,0 +1,30 @@
+@version 1
+
+source benchmark-test-human {
+    aliases ["dart-benchmark-test-human"];
+    extensions ["txt", "log"];
+
+    detect prefix "Benchmark:";
+
+    parse records {
+        start: "Benchmark:";
+        name: rest;
+
+        extract {
+            value: number_before "ops/sec",
+            rme: number_before "%",
+            samples: number_before "runs sampled"
+        }
+
+        id: str("name");
+        label: str("name");
+        value: num("value");
+        unit: "ops/s";
+        direction: higher;
+
+        stats {
+            rme_pct: num("rme"),
+            samples: num("samples")
+        }
+    }
+}

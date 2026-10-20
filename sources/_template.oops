@@ -1,0 +1,20 @@
+@version 1
+
+// This file is ignored by the source-gen macro (leading underscore).
+// Copy it to <name>.oops and fill in the blocks.
+
+source example {
+    aliases ["example-format"];
+    extensions ["json"];
+
+    detect json "$.benchmarks";
+
+    parse json {
+        rows "$.benchmarks";
+
+        id: str("name");
+        value: num("value");
+        unit: "ops/s";
+        direction: higher;
+    }
+}
