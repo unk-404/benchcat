@@ -180,7 +180,12 @@ memory-bound.
 
 ## Fonts
 
-`font/` keeps `skrifa` only for parsing; no font is embedded.
+`font/` keeps `skrifa` only for parsing; no font is embedded. `[font] family` is a
+`FontFamilies` (one string, `"a,b"`, or `["a","b"]`, in fallback order). `FontStack` holds the primary face plus
+guaranteed fallbacks (fixed list: repo catalogue then short system list, max four faces). `resolve.rs`
+loads it when `[font] enable_guaranteed_font` is on; the default off path is the old single `Font`.
+`svg/atlas.rs` keys glyphs by `(face, gid)`, and `push_text` keeps the old single-face markup whenever a
+run is fully covered by the primary face, switching to per-glyph scaling only for fallback runs.
 
 - `metrics.rs`: advances, ink boxes, line heights.
 - `outline.rs`: `path` cache, `glyph_bounds`, rayon `extract_paths` above 96 glyphs.

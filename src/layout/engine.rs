@@ -7,7 +7,7 @@
 use taffy::prelude::*;
 use taffy::tree::{LayoutInput, LayoutOutput};
 
-use crate::font::Font;
+use crate::font::FontStack;
 
 use super::badge::badge_geometry;
 use super::section::sections_of;
@@ -16,7 +16,7 @@ use super::*;
 use super::Rect;
 
 pub fn layout(
-    font: &Font,
+    font: &FontStack,
     rows: &[RowPlan],
     options: &LayoutOptions,
 ) -> Result<LayoutPlan, LayoutError> {

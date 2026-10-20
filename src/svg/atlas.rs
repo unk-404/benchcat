@@ -2,30 +2,31 @@
 
 use hashbrown::HashMap;
 
+use crate::font::FontStack;
 use crate::hash::BuildIdentity;
-
-use crate::font::Font;
 
 use super::writer::Writer;
 
 pub(crate) struct Atlas {
-    /// `gid -> path id`; `u32::MAX` means the glyph is not in this atlas.
-    index: Vec<u32>,
+    /// `(face index, gid) -> path id`; faces are stacked for fallback, so the
+    /// same gid in two faces is not the same glyph.
+    index: HashMap<(u16, u16), u32, BuildIdentity>,
     pub(crate) paths: Vec<String>,
 }
 
 impl Atlas {
-    pub(crate) fn build(font: &Font, texts: &[(&str, f32)]) -> (Self, Vec<String>) {
-        let mut index: HashMap<u16, usize, BuildIdentity> = HashMap::default();
-        let mut gids: Vec<u16> = Vec::new();
+    pub(crate) fn build(stack: &FontStack, texts: &[(&str, f32)]) -> (Self, Vec<String>) {
+        let mut index: HashMap<(u16, u16), u32, BuildIdentity> = HashMap::default();
+        let mut unique: Vec<(usize, u16)> = Vec::new();
         let mut missing: Vec<char> = Vec::new();
         for (text, _) in texts {
             for ch in text.chars() {
-                match font.glyph(ch) {
-                    Some(glyph) => {
-                        if let hashbrown::hash_map::Entry::Vacant(slot) = index.entry(glyph.gid) {
-                            slot.insert(gids.len());
-                            gids.push(glyph.gid);
+                match stack.glyph(ch) {
+                    Some((face, glyph)) => {
+                        let key = (face as u16, glyph.gid);
+                        if let hashbrown::hash_map::Entry::Vacant(slot) = index.entry(key) {
+                            slot.insert(unique.len() as u32);
+                            unique.push((face, glyph.gid));
                         }
                     }
                     None => missing.push(ch),
@@ -34,24 +35,35 @@ impl Atlas {
         }
         missing.sort_unstable();
         missing.dedup();
-        let paths = font.extract_paths(&gids);
-        let mut by_gid = vec![u32::MAX; 65_536];
-        for (slot, gid) in gids.iter().enumerate() {
-            by_gid[*gid as usize] = slot as u32;
+
+        let mut paths = vec![String::new(); unique.len()];
+        for (face, font) in stack.fonts().iter().enumerate() {
+            let slots: Vec<usize> = unique
+                .iter()
+                .enumerate()
+                .filter(|(_, (owner, _))| *owner == face)
+                .map(|(slot, _)| slot)
+                .collect();
+            if slots.is_empty() {
+                continue;
+            }
+            let gids: Vec<u16> = slots.iter().map(|slot| unique[*slot].1).collect();
+            let extracted = font.extract_paths(&gids);
+            for (slot, path) in slots.into_iter().zip(extracted) {
+                paths[slot] = path;
+            }
         }
+
         let warnings = if missing.is_empty() {
             Vec::new()
         } else {
             let chars: String = missing.iter().collect();
-            vec![format!("font {:?} has no glyph for {chars:?}", font.family)]
+            vec![format!(
+                "font {:?} has no glyph for {chars:?}",
+                stack.family()
+            )]
         };
-        (
-            Self {
-                index: by_gid,
-                paths,
-            },
-            warnings,
-        )
+        (Self { index, paths }, warnings)
     }
 
     /// Emits `<defs>`, one `<path id="gN">` per glyph, without a closing tag:
@@ -81,7 +93,7 @@ pub enum Anchor {
 pub(crate) fn push_text(
     out: &mut Writer,
     atlas: &Atlas,
-    font: &Font,
+    stack: &FontStack,
     text: &str,
     x: f32,
     baseline: f32,
@@ -92,35 +104,73 @@ pub(crate) fn push_text(
     if text.is_empty() {
         return;
     }
-    // Width is only needed to shift the origin; most runs are left-aligned.
     let start = match anchor {
         Anchor::Start => x,
-        Anchor::Middle => x - font.text_width(text, size) / 2.0,
-        Anchor::End => x - font.text_width(text, size),
+        Anchor::Middle => x - stack.text_width(text, size) / 2.0,
+        Anchor::End => x - stack.text_width(text, size),
     };
-    let scale = size / font.units_per_em;
+
+    // Runs drawn entirely by the primary face keep the exact old markup: one
+    // translate+scale group for the whole run. Only runs that actually use a
+    // fallback face switch scale per glyph.
+    let all_primary = text
+        .chars()
+        .all(|ch| matches!(stack.glyph(ch), Some((0, _))));
+    if stack.len() == 1 || all_primary {
+        let font = stack.font(0);
+        let scale = size / font.units_per_em;
+        out.open("g")
+            .attr_fmt(
+                "transform",
+                format_args!("translate({start:.2} {baseline:.2}) scale({scale:.5} -{scale:.5})"),
+            )
+            .attr_raw("fill", fill)
+            .close();
+        let mut cursor: f32 = 0.0;
+        for ch in text.chars() {
+            match stack.glyph(ch) {
+                Some((_, glyph)) => {
+                    if let Some(id) = atlas.index.get(&(0, glyph.gid)) {
+                        out.open("use")
+                            .attr_id("href", "#g", *id as usize)
+                            .attr_num("x", cursor, 1)
+                            .empty();
+                    }
+                    cursor += glyph.advance;
+                }
+                None => cursor += font.units_per_em * 0.5,
+            }
+        }
+        out.end("g");
+        return;
+    }
+
     out.open("g")
         .attr_fmt(
             "transform",
-            format_args!("translate({start:.2} {baseline:.2}) scale({scale:.5} -{scale:.5})"),
+            format_args!("translate({start:.2} {baseline:.2})"),
         )
         .attr_raw("fill", fill)
         .close();
     let mut cursor: f32 = 0.0;
     for ch in text.chars() {
-        match font.glyph(ch) {
-            Some(glyph) => {
-                let id = atlas.index[glyph.gid as usize];
-                if id != u32::MAX {
-                    out.open("use")
-                        .attr_id("href", "#g", id as usize)
-                        .attr_num("x", cursor, 1)
-                        .empty();
-                }
-                cursor += glyph.advance;
-            }
-            None => cursor += font.advance_units(ch) + font.units_per_em * 0.5,
+        let Some((face, glyph)) = stack.glyph(ch) else {
+            cursor += size * 0.5;
+            continue;
+        };
+        let font = stack.font(face);
+        let scale = size / font.units_per_em;
+        if let Some(id) = atlas.index.get(&(face as u16, glyph.gid)) {
+            out.open("g")
+                .attr_fmt(
+                    "transform",
+                    format_args!("translate({cursor:.2} 0) scale({scale:.5} -{scale:.5})"),
+                )
+                .close();
+            out.open("use").attr_id("href", "#g", *id as usize).empty();
+            out.end("g");
         }
+        cursor += glyph.advance * scale;
     }
     out.end("g");
 }

@@ -11,8 +11,9 @@ use clap::{Parser, Subcommand};
 use tracing::{debug, info};
 
 use benchcat::config::Config;
+use benchcat::font::load_stack;
 use benchcat::input::{self, Format};
-use benchcat::render::{RenderRequest, RenderedParts, SeriesInput, load_font, render_parts};
+use benchcat::render::{RenderRequest, RenderedParts, SeriesInput, render_parts};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -65,9 +66,9 @@ struct RenderArgs {
     #[arg(long, value_name = "FILE")]
     font_file: Option<PathBuf>,
 
-    /// Font family name resolved inside ./fonts.
-    #[arg(long, value_name = "NAME")]
-    font: Option<String>,
+    /// One or more font families (comma separated or repeated); also `--font-file`.
+    #[arg(long, value_name = "NAME", value_delimiter = ',')]
+    font: Vec<String>,
 
     /// Override the heading.
     #[arg(long, value_name = "TEXT")]
@@ -247,11 +248,29 @@ fn render(args: RenderArgs) -> Result<(), String> {
             .filter(|value| !value.is_empty());
     }
 
-    let family = args.font.clone().or_else(|| config.font.family.clone());
-    let font = load_font(args.font_file.as_deref(), family.as_deref()).map_err(|err| {
+    let mut families: Vec<String> = if args.font.is_empty() {
+        config
+            .font
+            .family
+            .as_ref()
+            .map(|families| families.0.clone())
+            .unwrap_or_default()
+    } else {
+        args.font.clone()
+    };
+    for name in &mut families {
+        *name = name.trim().to_owned();
+    }
+    families.retain(|name| !name.is_empty());
+    let font = load_stack(
+        args.font_file.as_deref(),
+        &families,
+        config.font.enable_guaranteed_font,
+    )
+    .map_err(|err| {
         format!("{err}\nhint: pass --font-file, set BENCHCAT_FONT_DIR, or place a .ttf in ./fonts")
     })?;
-    debug!(font = %font.family, "font loaded");
+    debug!(font = %font.family(), faces = font.len(), "font loaded");
 
     let series: Vec<SeriesInput<'_>> = loaded
         .iter()
@@ -320,7 +339,7 @@ fn render(args: RenderArgs) -> Result<(), String> {
         parts.row_count,
         series.len().max(1),
         bytes,
-        font.family
+        font.family()
     );
     Ok(())
 }

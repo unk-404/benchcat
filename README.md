@@ -120,7 +120,8 @@ The SVG on stdout (`-o -`) is never mixed with logs, and CI does not treat stder
 
 ```toml
 [font]
-family = "mplus-rounded"   # file stem inside ./fonts
+family = ["mplus-rounded"]  # one stem, "a,b", or ["a","b"]
+enable_guaranteed_font = false   # opt-in per-character fallback; see below
 
 [render]
 title = "blit benchmarks"
@@ -145,6 +146,18 @@ label = "Windows x64"
 input = "bench-windows.jsonl"
 color = "#8CB8F0"
 ```
+
+`family` accepts a single stem (`"mplus-rounded"`), a comma-separated string (`"mplus-rounded,
+zcool-kuaile"`) or a list (`["mplus-rounded", "zcool-kuaile"]`); entries are tried in order, so old
+single-string configs are unchanged.
+
+`enable_guaranteed_font = false` keeps the original single-face behaviour, so existing configs and
+cards are unchanged. When it is `true`, the configured face is tried first and characters it lacks come
+from a fixed list: our `fonts/` catalogue (`mplus-rounded`, `zen-maru-gothic`, `zcool-kuaile`,
+`quicksand`) and then a short system list, at most four faces in total. The list is not configurable. If
+the configured face is missing or unreadable, the first guaranteed face becomes the primary. Runs fully
+covered by the primary face keep byte-identical output; only runs that actually use a fallback switch to
+per-glyph scaling.
 
 Two or more `[[series]]` switch to the comparison layout: one row per operation, one bar per source, a
 legend, and one value per bar. Bars are linear and scaled to the row's own best value by default
@@ -259,7 +272,7 @@ git, tokens or pull requests.
 | `format` | `auto` | Same values as `--format` |
 | `config` | — | `benchcat.toml` (auto-discovered when omitted) |
 | `out` | `assets/benchmarks.svg` | Output path |
-| `font` | — | Family from the bundled catalogue (or `./fonts`), e.g. `quicksand` |
+| `font` | — | One or more catalogue families, comma separated, e.g. `quicksand,zcool-kuaile` |
 | `font_file` | — | Custom TTF/OTF; the bundled catalogue needs no file |
 | `version` | `auto` | Release tag; `auto` follows the action ref, else `latest` |
 | `tool_path` | — | Use an existing binary, no download |

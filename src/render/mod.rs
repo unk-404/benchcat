@@ -4,7 +4,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::config::Config;
-use crate::font::Font;
+use crate::font::{Font, FontStack};
 use crate::layout::{LayoutOptions, LegendItem, layout};
 use crate::model::{Benchmark, Meta};
 use crate::svg::{self, RenderInput};
@@ -38,7 +38,7 @@ pub struct RenderRequest<'a> {
     pub config: &'a Config,
     pub meta: &'a Meta,
     pub series: &'a [SeriesInput<'a>],
-    pub font: &'a Font,
+    pub font: &'a FontStack,
 }
 
 pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
@@ -124,7 +124,7 @@ pub fn render_parts(request: RenderRequest<'_>) -> Result<RenderedParts, RenderE
     let context = TemplateContext {
         meta: request.meta,
         rows: rows.len(),
-        font: &request.font.family,
+        font: request.font.family(),
     };
     let mut warnings: Vec<String> = Vec::new();
     let title_source = render

@@ -185,8 +185,10 @@ impl Font {
 mod metrics;
 mod outline;
 mod resolve;
+mod stack;
 
-pub use resolve::resolve_font;
+pub use resolve::{load_stack, resolve_font};
+pub use stack::FontStack;
 
 #[cfg(test)]
 mod tests {

@@ -180,15 +180,15 @@ pub use engine::layout;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::font::Font;
+    use crate::font::{Font, FontStack};
     use std::path::Path;
 
-    fn font() -> Option<Font> {
+    fn font() -> Option<FontStack> {
         let path = Path::new("fonts/mplus-rounded.ttf");
         if !path.is_file() {
             return None;
         }
-        Some(Font::load(path).expect("font"))
+        Some(FontStack::single(Font::load(path).expect("font")))
     }
 
     fn row(label: &str, group: Option<&str>) -> RowPlan {

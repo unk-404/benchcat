@@ -91,7 +91,7 @@ For pull requests, skip the commit and upload `out` as an artifact instead.
 | `format` | `auto` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
 | `config` | — | `benchcat.toml`; auto-discovered when omitted |
 | `out` | `assets/benchmarks.svg` | output path |
-| `font` | — | catalogue family bundled with the action, e.g. `quicksand` |
+| `font` | — | one or more bundled catalogue families, comma separated, e.g. `quicksand,zcool-kuaile` |
 | `font_file` | — | custom TTF/OTF (not needed for the catalogue) |
 | `version` | `auto` | binary release tag |
 | `tool_path` | — | existing binary, no download (air-gapped runners) |
@@ -199,7 +199,8 @@ ignored, so the action can omit it.
 
 ```toml
 [font]
-family = "mplus-rounded"        # catalogue stem, or ./fonts/<stem>.ttf
+family = ["mplus-rounded", "zcool-kuaile"]   # "a", "a,b" or ["a","b"]
+enable_guaranteed_font = false              # opt-in fixed fallback list
 
 [render]
 title = "my benchmarks"
@@ -248,13 +249,26 @@ unmatched rows append unless `only_matched = true`.
 | `bar_curve` | `"linear"` | comparison cards only |
 | `missing` | `"skip"` | comparison cards only |
 
+`family` accepts one stem, a comma-separated string, or a list; entries are tried in order (a single
+string keeps the old behaviour exactly).
+
 The action sets `BENCHCAT_FONT_DIR` to its own `fonts/` catalogue, so no repository font files are
 needed. Order: `font_file`/`--font-file` wins, then `font`/`--font` (or the `mplus-rounded` default)
 looked up in `BENCHCAT_FONT_DIR` and then `./fonts`, then any TTF/OTF in those directories. For the CLI
 outside the action, use `--font-file`, or `--font` with `./fonts/<stem>.ttf`, or
 `BENCHCAT_FONT_DIR=/path/to/fonts`.
 
-**Set exactly one font source.** `font_file` overrides `font`; `--font` overrides `[font] family`.
+### Guaranteed fallback
+
+`[font] enable_guaranteed_font = true` (or `BENCHCAT_FONT__ENABLE_GUARANTEED_FONT=true`) turns on a fixed
+per-character fallback: our catalogue (`mplus-rounded`, `zen-maru-gothic`, `zcool-kuaile`, `quicksand`)
+and then a short system list, at most four faces. The list is not configurable, and the option is off by
+default — with it off, behaviour and bytes are exactly as before. If the configured face is missing or
+unreadable, the first guaranteed face becomes the primary. Enable it for mixed-script cards; runs fully
+covered by the primary face stay byte-identical.
+
+**Set exactly one font source.** A family list counts as one source. `font_file` overrides it;
+`--font` overrides `[font] family`.
 `BENCHCAT_FONT__FAMILY` (double underscore) is the config override; do not set `BENCHCAT_FONT` or
 `BENCHCAT_FONT_FAMILY`, and do not set `BENCHCAT_FONT_DIR` when the action already provides it — those
 combinations are what produce config type/unknown-field errors.

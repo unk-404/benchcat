@@ -2,7 +2,7 @@
 
 use rayon::prelude::*;
 
-use crate::font::Font;
+use crate::font::FontStack;
 use crate::layout::{
     FOOTER_SIZE, LABEL_SIZE, LEGEND_SIZE, LayoutPlan, NOTE_SIZE, NUMBER_SIZE, RME_SIZE, RowBox,
     SECTION_SIZE, SERIES_VALUE_SIZE, SUBTITLE_SIZE, TITLE_SIZE, VALUE_SIZE,
@@ -34,7 +34,12 @@ pub struct RenderParts {
     pub warnings: Vec<String>,
 }
 
-pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme) -> RenderOutput {
+pub fn render(
+    font: &FontStack,
+    plan: &LayoutPlan,
+    input: &RenderInput,
+    theme: &Theme,
+) -> RenderOutput {
     let RenderParts {
         prefix,
         rows,
@@ -50,7 +55,7 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
 }
 
 pub fn render_parts(
-    font: &Font,
+    font: &FontStack,
     plan: &LayoutPlan,
     input: &RenderInput,
     theme: &Theme,
@@ -296,7 +301,7 @@ fn emit_row(
     plan: &LayoutPlan,
     row: &RowBox,
     index: usize,
-    font: &Font,
+    font: &FontStack,
     atlas: &Atlas,
     theme: &Theme,
     numbers: &[String],

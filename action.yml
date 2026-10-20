@@ -20,7 +20,7 @@ inputs:
     description: Output SVG path
     default: assets/benchmarks.svg
   font:
-    description: Family from the bundled OFL catalogue (or ./fonts), for example "quicksand"
+    description: One or more families from the bundled OFL catalogue, comma separated, e.g. "quicksand,zcool-kuaile"
     required: false
   font_file:
     description: Explicit TTF/OTF path for a custom face; the bundled catalogue needs no file

@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use benchcat::config::Config;
-use benchcat::font::Font;
+use benchcat::font::FontStack;
 use benchcat::input::{self, Format, Loaded};
 use benchcat::model::{Benchmark, Direction, Meta, Platform, Stats};
 use benchcat::render::{RenderRequest, SeriesInput, load_font};
@@ -84,7 +84,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let _ = ONLY.set(only);
 
     let with_png = args.png;
-    let font = load_font(None, Some("mplus-rounded"))?;
+    let font = FontStack::single(load_font(None, Some("mplus-rounded"))?);
     std::fs::create_dir_all(OUT_DIR)?;
     if with_png {
         std::fs::create_dir_all(PREVIEW_DIR)?;
@@ -324,7 +324,7 @@ fn load(path: &str) -> Result<Loaded, Box<dyn Error>> {
 
 #[allow(clippy::too_many_arguments)]
 fn emit(
-    font: &Font,
+    font: &FontStack,
     name: &str,
     config: &Config,
     meta: &Meta,

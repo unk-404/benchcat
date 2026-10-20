@@ -27,6 +27,7 @@ use std::process;
 use std::time::Instant;
 
 use benchcat::config::{BarCurve, BarScale, Config, Missing};
+use benchcat::font::FontStack;
 use benchcat::input::{self, Format};
 use benchcat::render::{self, RenderRequest, SeriesInput};
 use clap::Parser;
@@ -273,8 +274,11 @@ fn run(args: &Args) -> Result<(), String> {
     let config = build_config(args)?;
     let corpus = Corpus::new(args.keep)?;
     let family = Some(args.font.as_str());
-    let font = render::load_font(args.font_file.as_deref(), family)
-        .map_err(|err| format!("{err}\nhint: run from the repository root or pass --font-file"))?;
+    let font = FontStack::single(
+        render::load_font(args.font_file.as_deref(), family).map_err(|err| {
+            format!("{err}\nhint: run from the repository root or pass --font-file")
+        })?,
+    );
 
     if !args.json {
         println!("benchcat render benchmark (development only)");

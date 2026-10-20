@@ -44,11 +44,59 @@ pub struct RowRule {
     pub group: Option<String>,
 }
 
+/// One or more family stems, in fallback order.
+///
+/// Accepts a single string (`"quicksand"`), a comma-separated string
+/// (`"quicksand, zcool-kuaile"`) or a list (`["quicksand", "zcool-kuaile"]`),
+/// so existing single-family configs keep working unchanged.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct FontFamilies(pub Vec<String>);
+
+impl FontFamilies {
+    pub fn as_slice(&self) -> &[String] {
+        &self.0
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl<'de> Deserialize<'de> for FontFamilies {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            One(String),
+            Many(Vec<String>),
+        }
+
+        let raw = Raw::deserialize(deserializer)?;
+        let values = match raw {
+            Raw::One(text) => split_families(&text),
+            Raw::Many(items) => items.iter().flat_map(|item| split_families(item)).collect(),
+        };
+        Ok(Self(values))
+    }
+}
+
+fn split_families(text: &str) -> Vec<String> {
+    text.split(',')
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_owned)
+        .collect()
+}
+
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct FontSettings {
-    /// Font family name, i.e. the file stem inside `./fonts`.
-    pub family: Option<String>,
+    /// Family stems in fallback order: string, comma-separated string or list.
+    pub family: Option<FontFamilies>,
+    /// Try the fixed guaranteed-font list when the configured face is missing,
+    /// unreadable, or lacks glyphs. Off by default so existing cards stay
+    /// byte-identical.
+    pub enable_guaranteed_font: bool,
 }
 
 /// One comparison source: a platform, a language, a branch, ...
@@ -208,5 +256,35 @@ impl Config {
             return Self::load(conventional).map(Some);
         }
         Ok(None)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Config;
+
+    #[test]
+    fn font_family_accepts_string_comma_and_list() {
+        let one: Config = serde_json::from_str(r#"{"font":{"family":"quicksand"}}"#).unwrap();
+        assert_eq!(one.font.family.unwrap().0, ["quicksand"]);
+
+        let comma: Config =
+            serde_json::from_str(r#"{"font":{"family":"quicksand, zcool-kuaile"}}"#).unwrap();
+        assert_eq!(comma.font.family.unwrap().0, ["quicksand", "zcool-kuaile"]);
+
+        let list: Config =
+            serde_json::from_str(r#"{"font":{"family":["quicksand","zcool-kuaile"]}}"#).unwrap();
+        assert_eq!(list.font.family.unwrap().0, ["quicksand", "zcool-kuaile"]);
+        assert!(!list.font.enable_guaranteed_font);
+    }
+
+    #[test]
+    fn guaranteed_font_is_opt_in_but_parses() {
+        let default: Config = serde_json::from_str("{}").unwrap();
+        assert!(!default.font.enable_guaranteed_font);
+
+        let on: Config =
+            serde_json::from_str(r#"{"font":{"enable_guaranteed_font":true}}"#).unwrap();
+        assert!(on.font.enable_guaranteed_font);
     }
 }

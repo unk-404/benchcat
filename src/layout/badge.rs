@@ -1,6 +1,6 @@
 //! Number badge geometry: a cat whose body stretches with the digit count.
 
-use crate::font::Font;
+use crate::font::FontStack;
 
 use super::{NUMBER_BADGE_HEIGHT, NUMBER_SIZE, Rect, number_badge_width};
 
@@ -17,7 +17,7 @@ pub(crate) fn badge_geometry(
     card: Rect,
     slot_width: f32,
     ordinal: usize,
-    font: &Font,
+    font: &FontStack,
 ) -> BadgeGeometry {
     let digits = ordinal.to_string();
     let ink = font.text_ink(&digits, NUMBER_SIZE);
