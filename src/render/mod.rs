@@ -42,6 +42,45 @@ pub struct RenderRequest<'a> {
 }
 
 pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
+    let RenderedParts {
+        prefix,
+        rows,
+        suffix,
+        warnings,
+        row_count,
+    } = render_parts(request)?;
+    let mut svg = prefix;
+    for chunk in rows {
+        svg.push_str(&chunk);
+    }
+    svg.push_str(&suffix);
+    Ok(Rendered {
+        svg,
+        warnings,
+        rows: row_count,
+    })
+}
+
+/// The card split at the row boundary, for callers that write the pieces out.
+pub struct RenderedParts {
+    pub prefix: String,
+    pub rows: Vec<String>,
+    pub suffix: String,
+    pub warnings: Vec<String>,
+    pub row_count: usize,
+}
+
+impl RenderedParts {
+    pub fn len(&self) -> usize {
+        self.prefix.len() + self.rows.iter().map(String::len).sum::<usize>() + self.suffix.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+pub fn render_parts(request: RenderRequest<'_>) -> Result<RenderedParts, RenderError> {
     let render = &request.config.render;
     let theme =
         svg::theme(&render.theme).ok_or_else(|| RenderError::UnknownTheme(render.theme.clone()))?;
@@ -125,7 +164,7 @@ pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
         "laid out card"
     );
     let svg_start = Instant::now();
-    let output = svg::render(
+    let output = svg::render_parts(
         request.font,
         &plan,
         &RenderInput {
@@ -137,8 +176,11 @@ pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
         theme,
     );
 
+    let bytes = output.prefix.len()
+        + output.rows.iter().map(String::len).sum::<usize>()
+        + output.suffix.len();
     debug!(
-        bytes = output.svg.len(),
+        bytes,
         elapsed_ms = svg_start.elapsed().as_secs_f64() * 1_000.0,
         "wrote svg tree"
     );
@@ -147,13 +189,15 @@ pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
         "render complete"
     );
 
-    Ok(Rendered {
-        svg: output.svg,
+    Ok(RenderedParts {
+        prefix: output.prefix,
+        rows: output.rows,
+        suffix: output.suffix,
         warnings: {
             warnings.extend(output.warnings);
             warnings
         },
-        rows: rows.len(),
+        row_count: rows.len(),
     })
 }
 

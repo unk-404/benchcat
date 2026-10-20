@@ -3,6 +3,7 @@ use std::path::PathBuf;
 #[cfg(not(target_env = "musl"))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+use std::io::Write;
 use std::process::ExitCode;
 use std::time::Instant;
 
@@ -11,7 +12,7 @@ use tracing::{debug, info};
 
 use benchcat::config::Config;
 use benchcat::input::{self, Format};
-use benchcat::render::{RenderRequest, SeriesInput, load_font};
+use benchcat::render::{RenderRequest, RenderedParts, SeriesInput, load_font, render_parts};
 
 #[derive(Debug, Parser)]
 #[command(
@@ -256,30 +257,33 @@ fn render(args: RenderArgs) -> Result<(), String> {
         .collect();
 
     let render_start = Instant::now();
-    let rendered = benchcat::render::render(RenderRequest {
+    let parts = render_parts(RenderRequest {
         config: &config,
         meta: &meta,
         series: &series,
         font: &font,
     })
     .map_err(|err| err.to_string())?;
+    let bytes = parts.len();
 
     info!(
-        rows = rendered.rows,
-        bytes = rendered.svg.len(),
+        rows = parts.row_count,
+        bytes,
         elapsed_ms = render_start.elapsed().as_secs_f64() * 1_000.0,
         "rendered card"
     );
 
-    for warning in &rendered.warnings {
+    for warning in &parts.warnings {
         eprintln!("warning: {warning}");
     }
 
     if args.out == "-" {
-        print!("{}", rendered.svg);
+        write_parts(&mut std::io::stdout().lock(), &parts)
+            .map_err(|err| format!("cannot write stdout: {err}"))?;
     } else {
         if args.stdout {
-            print!("{}", rendered.svg);
+            write_parts(&mut std::io::stdout().lock(), &parts)
+                .map_err(|err| format!("cannot write stdout: {err}"))?;
         }
         let path = PathBuf::from(&args.out);
         if let Some(parent) = path.parent()
@@ -289,11 +293,13 @@ fn render(args: RenderArgs) -> Result<(), String> {
                 .map_err(|err| format!("cannot create {}: {err}", parent.display()))?;
         }
         let write_start = Instant::now();
-        std::fs::write(&path, &rendered.svg)
+        let mut file = std::fs::File::create(&path)
+            .map_err(|err| format!("cannot write {}: {err}", path.display()))?;
+        write_parts(&mut file, &parts)
             .map_err(|err| format!("cannot write {}: {err}", path.display()))?;
         info!(
             path = %path.display(),
-            bytes = rendered.svg.len(),
+            bytes,
             elapsed_ms = write_start.elapsed().as_secs_f64() * 1_000.0,
             "wrote svg"
         );
@@ -301,10 +307,18 @@ fn render(args: RenderArgs) -> Result<(), String> {
 
     eprintln!(
         "{} rows · {} series · {} bytes · font {}",
-        rendered.rows,
+        parts.row_count,
         series.len().max(1),
-        rendered.svg.len(),
+        bytes,
         font.family
     );
     Ok(())
+}
+
+fn write_parts<W: Write>(out: &mut W, parts: &RenderedParts) -> std::io::Result<()> {
+    out.write_all(parts.prefix.as_bytes())?;
+    for chunk in &parts.rows {
+        out.write_all(chunk.as_bytes())?;
+    }
+    out.write_all(parts.suffix.as_bytes())
 }

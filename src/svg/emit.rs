@@ -25,7 +25,36 @@ pub struct RenderOutput {
     pub warnings: Vec<String>,
 }
 
+/// The card split at the row boundary: the CLI can write the pieces straight to
+/// a file instead of first concatenating a second full-size string.
+pub struct RenderParts {
+    pub prefix: String,
+    pub rows: Vec<String>,
+    pub suffix: String,
+    pub warnings: Vec<String>,
+}
+
 pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme) -> RenderOutput {
+    let RenderParts {
+        prefix,
+        rows,
+        suffix,
+        warnings,
+    } = render_parts(font, plan, input, theme);
+    let mut svg = prefix;
+    for chunk in rows {
+        svg.push_str(&chunk);
+    }
+    svg.push_str(&suffix);
+    RenderOutput { svg, warnings }
+}
+
+pub fn render_parts(
+    font: &Font,
+    plan: &LayoutPlan,
+    input: &RenderInput,
+    theme: &Theme,
+) -> RenderParts {
     let numbers: Vec<String> = (1..=plan.rows.len())
         .map(|index| index.to_string())
         .collect();
@@ -180,12 +209,11 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
         );
     }
 
-    // Rows are independent; the chunk buffers are concatenated in order, so the
-    // output is identical to the sequential pass.
-    if plan.rows.len() >= PARALLEL_ROWS {
+    // Rows are independent; chunks are concatenated in order by `render`, and
+    // the CLI writes them one by one, so the bytes are identical either way.
+    let rows: Vec<String> = if plan.rows.len() >= PARALLEL_ROWS {
         let chunk_size = plan.rows.len().div_ceil(ROW_CHUNKS);
-        let chunks: Vec<String> = plan
-            .rows
+        plan.rows
             .par_chunks(chunk_size)
             .enumerate()
             .map(|(chunk, rows)| {
@@ -204,15 +232,16 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
                 }
                 out.finish()
             })
-            .collect();
-        for chunk in chunks {
-            out.raw(&chunk);
-        }
+            .collect()
     } else {
+        let mut out = Writer::with_capacity(plan.rows.len() * 3_000 + 1_024);
         for (index, row) in plan.rows.iter().enumerate() {
             emit_row(&mut out, plan, row, index, font, &atlas, theme, &numbers);
         }
-    }
+        vec![out.finish()]
+    };
+    let prefix = out.finish();
+    let mut out = Writer::with_capacity(1_024);
 
     let footer_baseline = plan.footer.y + font.ascent_px(FOOTER_SIZE);
     push_text(
@@ -246,8 +275,10 @@ pub fn render(font: &Font, plan: &LayoutPlan, input: &RenderInput, theme: &Theme
     }
 
     out.raw("</svg>\n");
-    RenderOutput {
-        svg: out.finish(),
+    RenderParts {
+        prefix,
+        rows,
+        suffix: out.finish(),
         warnings,
     }
 }

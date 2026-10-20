@@ -8,5 +8,5 @@ mod writer;
 
 pub use atlas::Anchor;
 pub use badge::number_cat;
-pub use emit::{RenderInput, RenderOutput, render};
+pub use emit::{RenderInput, RenderOutput, RenderParts, render, render_parts};
 pub use theme::{DARK, PASTEL, Theme, theme};
