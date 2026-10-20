@@ -31,3 +31,9 @@ resvg = "0.48.1"
 
 [target.'cfg(not(target_env = "musl"))'.dependencies]
 mimalloc = { version = "0.1.52", default-features = false }
+
+[[bench]]
+name = "render"
+# Development-only; cargo bench --bench render. CI tests explicit targets and
+# never runs it.
+harness = false

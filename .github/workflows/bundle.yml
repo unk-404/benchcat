@@ -153,7 +153,8 @@ jobs:
         run: cargo clippy --locked --all-targets -- -D warnings
 
       - name: Test
-        run: cargo test --all-targets --locked
+        # --all-targets would also execute the development-only bench target.
+        run: cargo test --locked --lib --bins --tests --examples
 
       - name: Render one card per platform
         shell: bash
