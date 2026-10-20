@@ -347,6 +347,30 @@ fn main() -> Result<(), Box<dyn Error>> {
         with_png,
     )?;
 
+    // Drop examples that are no longer in NAMES, so a removed example cannot
+    // leave a committed SVG behind. A --only run must not touch other files.
+    let only = ONLY.get().and_then(|only| only.as_ref());
+    if only.is_none() {
+        let keep: std::collections::HashSet<&str> = NAMES.iter().copied().collect();
+        for entry in std::fs::read_dir(OUT_DIR)? {
+            let path = entry?.path();
+            if !path
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("svg"))
+            {
+                continue;
+            }
+            let stem = path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            if !keep.contains(stem.as_str()) {
+                std::fs::remove_file(&path)?;
+                println!("removed stale {}", path.display());
+            }
+        }
+    }
+
     Ok(())
 }
 

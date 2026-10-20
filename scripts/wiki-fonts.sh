@@ -23,7 +23,8 @@ fi
 [[ -n "$token" ]] || { echo "::notice::no wiki token; skipping"; exit 0; }
 
 rm -rf "$work"
-if ! git clone --depth 1 "https://x-access-token:${token}@github.com/${repo}.wiki.git" "$work" >/dev/null 2>&1; then
+export GIT_TERMINAL_PROMPT=0
+if ! git clone "https://x-access-token:${token}@github.com/${repo}.wiki.git" "$work" >/dev/null 2>&1; then
   echo "::notice::${repo}.wiki.git is not available; create the wiki once and rerun"
   exit 0
 fi
@@ -41,7 +42,9 @@ git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 git add Fonts.md
 git commit -m "Update font specimens"
 if ! git push origin HEAD; then
-  git pull --rebase origin HEAD >/dev/null 2>&1 || true
+  # Another wiki edit landed first; rebase and retry once. The page is
+  # deterministic, so regenerating it here is equivalent to resolving by hand.
+  git pull --rebase >/dev/null 2>&1 || git rebase --abort 2>/dev/null || true
   if ! git push origin HEAD; then
     echo "::warning::could not push the wiki Fonts page; check the wiki token"
     exit 0

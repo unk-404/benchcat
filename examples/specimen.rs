@@ -11,11 +11,12 @@
 
 use hashbrown::HashMap;
 
-use benchcat::hash::BuildIdentity;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
 use benchcat::Font;
+use benchcat::hash::BuildIdentity;
 use benchcat::layout::{
     NUMBER_BADGE_BODY_CENTER, NUMBER_BADGE_HEIGHT, NUMBER_SIZE, Rect, number_badge_width,
     number_ink_center_x,
@@ -103,6 +104,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
         return Ok(());
     }
+    let stems: HashSet<String> = fonts.iter().map(&stem_of).collect();
     let only = args.font;
 
     for path in fonts {
@@ -120,6 +122,28 @@ fn main() -> Result<(), Box<dyn Error>> {
         if with_png {
             let png = Path::new(PREVIEW_DIR).join(format!("font-{stem}.png"));
             rasterise(&svg, &png, 2.0)?;
+        }
+    }
+
+    // A removed font must not leave its specimen behind: the wiki and the
+    // gallery treat assets/fonts as the committed catalogue.
+    if only.is_none() {
+        for entry in std::fs::read_dir(OUT_DIR)? {
+            let path = entry?.path();
+            if !path
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("svg"))
+            {
+                continue;
+            }
+            let stem = path
+                .file_stem()
+                .map(|stem| stem.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            if !stems.contains(&stem) {
+                std::fs::remove_file(&path)?;
+                println!("removed stale {}", path.display());
+            }
         }
     }
     Ok(())

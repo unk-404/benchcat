@@ -241,7 +241,7 @@ A `changes` job classifies the pushed range (or the PR merge base) and sizes the
 | changed paths | runs |
 |---|---|
 | `Cargo.toml`, `Cargo.lock`, `src/`, `examples/`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
-| `fonts/`, `assets/` | assets only (fonts are runtime inputs, not compiled in) |
+| `fonts/`, `assets/`, example data (`examples/**` except `.rs`) | assets only (fonts are runtime inputs, not compiled in) |
 | `scripts/`, `action.yml`, `templates/`, `.github/` | the action test only |
 | markdown, `LICENSE`, `.gitignore` | nothing beyond classification |
 | anything unrecognised | full chain (safe default) |

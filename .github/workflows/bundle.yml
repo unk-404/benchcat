@@ -5,8 +5,8 @@ name: bundle
 #   full        Rust sources, manifests, the toolchain or .gitattributes
 #               changed: verify on 3 OS, byte identity, assets, the action test,
 #               then (outside pull requests) a 6-target release build + publish.
-#   assets      only fonts/, assets/ or docs changed: regenerate the gallery and
-#               specimens and stop. Fonts are runtime inputs, not compiled in.
+#   assets      only fonts/, assets/ or example data changed: regenerate the
+#               gallery and specimens and stop. Fonts are data, not compiled in.
 #   action      only scripts/, action.yml, templates/ or the workflow changed:
 #               run the action test only and stop.
 #   docs        markdown/LICENSE/.gitignore only: nothing to do.
@@ -61,6 +61,16 @@ jobs:
         with:
           # push needs the pushed range; pull requests need the merge base.
           fetch-depth: 0
+      - name: Wiki page generator
+        shell: bash
+        env:
+          WIKI_SOURCE_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          # Dry-run only: no token, no clone. Catches Python/shell regressions
+          # on every PR, including docs and font-only runs.
+          WIKI_DRY_RUN=1 WIKI_OUT="$RUNNER_TEMP/Fonts.md" bash scripts/wiki-fonts.sh
+
       - id: classify
         shell: bash
         run: |
@@ -69,8 +79,10 @@ jobs:
           assets=true
           action=true
 
-          rust='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|examples/|\.cargo/|rust-toolchain|\.gitattributes$)'
-          known='^(fonts/|assets/|.*\.md$|LICENSE|\.gitignore$|scripts/|action\.yml$|templates/|\.github/)'
+          # Only Rust example sources are build inputs. Data under examples/
+          # (gallery inputs, rows.toml, criterion fixtures) only needs assets.
+          rust='^(Cargo\.toml|Cargo\.lock|build\.rs|src/|examples/.*\.rs$|\.cargo/|rust-toolchain|\.gitattributes$)'
+          known='^(fonts/|assets/|.*\.md$|LICENSE|\.gitignore$|scripts/|action\.yml$|templates/|\.github/|examples/)'
 
           classify() {
             local from="$1" to="$2"
@@ -90,7 +102,7 @@ jobs:
               binary=false
               assets=false
               action=false
-              if grep -Eq '^(fonts/|assets/)' /tmp/changed; then
+              if grep -Eq '^(fonts/|assets/|examples/)' /tmp/changed; then
                 assets=true
               fi
               if grep -Eq '^(scripts/|action\.yml$|templates/|\.github/)' /tmp/changed; then
@@ -225,6 +237,23 @@ jobs:
           toolchain: "1.99.0"
       - uses: Swatinem/rust-cache@v2
 
+      - name: Font licences
+        shell: bash
+        run: |
+          set -euo pipefail
+          for font in fonts/*.ttf fonts/*.otf; do
+            [[ -e "$font" ]] || continue
+            licence="${font%.*}-OFL.txt"
+            if [[ ! -f "$licence" ]]; then
+              echo "::error::missing $licence for $font"
+              exit 1
+            fi
+            grep -q 'SIL OPEN FONT LICENSE' "$licence" || {
+              echo "::error::$licence is not an OFL text"
+              exit 1
+            }
+          done
+
       - name: Generate gallery and specimens
         run: |
           cargo run --locked --example gallery
@@ -300,19 +329,25 @@ jobs:
   wiki:
     name: publish font specimens to the wiki
     needs: [changes, assets]
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs.assets.result == 'success' }}
+    if: ${{ !cancelled() && github.event_name == 'push' && needs.assets.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
+      # The assets job may have committed new specimens after the push. Check
+      # out the branch tip rather than GITHUB_SHA, or a newly added font would
+      # be on the wiki's raw links but missing from the generated page.
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Update the wiki Fonts page
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           WIKI_TOKEN: ${{ secrets.WIKI_TOKEN }}
+          WIKI_SOURCE_BRANCH: ${{ github.event.repository.default_branch }}
         run: bash scripts/wiki-fonts.sh
 
   # The action is the product: install script, render script, inputs and outputs.
