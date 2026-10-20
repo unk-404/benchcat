@@ -40,6 +40,15 @@
       "unit": "MiB/s",
       "value": 1860.0,
       "direction": "higher"
+    },
+    {
+      "id": "io.read.ru",
+      "group": "Русский",
+      "label": "Последовательное чтение",
+      "note": "Noto Sans fallback",
+      "unit": "MiB/s",
+      "value": 1800.0,
+      "direction": "higher"
     }
   ]
 }

@@ -218,6 +218,11 @@ Values come from the input document plus `GITHUB_SHA`, `RUNNER_OS` and `RUNNER_A
 | Zen Maru Gothic | `zen-maru-gothic.ttf` | Latin, Kana, JIS Kanji | 3.7 MB |
 | ZCOOL KuaiLe | `zcool-kuaile.ttf` | Latin, Simplified Chinese | 1.4 MB |
 | Gaegu | `gaegu.ttf` | Latin, Hangul | 3.0 MB |
+| Lato | `lato.ttf` | Latin, Cyrillic | 641 KB |
+| JetBrains Mono | `jetbrains-mono.ttf` | Latin, Greek, Cyrillic | 183 KB |
+| Noto Sans | `noto-sans.ttf` | Latin, Greek, Cyrillic | 2.0 MB |
+| Rubik | `rubik.ttf` | Latin, Cyrillic, Hebrew | 351 KB |
+| Space Grotesk | `space-grotesk.ttf` | Latin | 133 KB |
 
 Each family ships its `-OFL.txt` next to the binary, and a type specimen under
 `assets/fonts/<file-stem>.svg`. Specimens draw every glyph the face cannot provide as a small pastel
@@ -242,7 +247,7 @@ cat, and keep the row for a script with no coverage at all.
 | [`13-sections.svg`](assets/examples/13-sections.svg) | `group` fields become section headings |
 | [`14-missing.svg`](assets/examples/14-missing.svg) | a missing source is skipped and the row shrinks |
 | [`15-bar-scale.svg`](assets/examples/15-bar-scale.svg) | `bar_scale = "global"` |
-| [`16-font-fallback.svg`](assets/examples/16-font-fallback.svg) | English only → Japanese fallback → Chinese + Korean fallbacks |
+| [`16-font-fallback.svg`](assets/examples/16-font-fallback.svg) | English only → Japanese fallback → Chinese/Korean → Russian (Noto Sans) |
 
 ```bash
 cargo run --example gallery                      # SVGs into assets/examples/

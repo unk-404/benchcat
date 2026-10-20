@@ -326,6 +326,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             "mplus-rounded".to_owned(),
             "zcool-kuaile".to_owned(),
             "gaegu".to_owned(),
+            "noto-sans".to_owned(),
         ],
         false,
     )?;
@@ -333,8 +334,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     config.render.title = Some("font fallback".to_owned());
     config.render.subtitle =
         Some("one primary face, a different fallback for each script".to_owned());
-    config.render.footer =
-        Some("Quicksand primary · M PLUS Rounded / ZCOOL KuaiLe / Gaegu fallbacks".to_owned());
+    config.render.footer = Some(
+        "Quicksand primary · M PLUS Rounded / ZCOOL KuaiLe / Gaegu / Noto Sans fallbacks"
+            .to_owned(),
+    );
     emit(
         &fallback_font,
         "16-font-fallback",
