@@ -285,6 +285,22 @@ cargo run --example specimen -- --font quicksand   # one specimen
 cargo run --example specimen -- --list            # font stems
 ```
 
+
+## Source cards
+
+Every supported source gets a mock card under [`assets/sources/`](assets/sources/). The catalogue is
+[`catalogue.json`](assets/sources/catalogue.json); the same images populate the
+[Sources wiki page](https://github.com/unk-404/benchcat/wiki/Sources).
+
+```bash
+cargo run --example sources                     # all source cards into assets/sources/
+cargo run --example sources -- --only go,jmh    # one or more cards
+cargo run --example sources -- --list           # source names
+```
+
+Inputs are generated under `target/source-examples/`; the committed SVGs and catalogue are deterministic.
+CI regenerates them, checks the diff and refreshes the wiki page after asset pushes.
+
 ## GitHub Action
 
 The action installs the right binary (cached, checksum-verified) and runs one render. It does not touch

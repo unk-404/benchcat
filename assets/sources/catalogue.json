@@ -1,0 +1,130 @@
+{
+  "sources": [
+    {
+      "description": "go test -bench columns; ns/op",
+      "format": "go",
+      "id": "go",
+      "image": "go.svg",
+      "input": "target/source-examples/go.txt",
+      "source": "sources/go.oops",
+      "title": "Go testing"
+    },
+    {
+      "description": "JMH JSON; ns/op lower is better",
+      "format": "jmh",
+      "id": "jmh",
+      "image": "jmh.svg",
+      "input": "target/source-examples/jmh.json",
+      "source": "sources/jmh.oops",
+      "title": "JMH"
+    },
+    {
+      "description": "cpu_time normalised to ns/op",
+      "format": "google",
+      "id": "google",
+      "image": "google.svg",
+      "input": "target/source-examples/google.json",
+      "source": "sources/google.oops",
+      "title": "Google Benchmark JSON"
+    },
+    {
+      "description": "BM_ columns copied from the console table",
+      "format": "google-console",
+      "id": "google-console",
+      "image": "google-console.svg",
+      "input": "target/source-examples/google-console.txt",
+      "source": "sources/google_console.oops",
+      "title": "Google Benchmark console"
+    },
+    {
+      "description": "swift-benchmark --format json",
+      "format": "swift",
+      "id": "swift",
+      "image": "swift.svg",
+      "input": "target/source-examples/swift.json",
+      "source": "sources/swift.oops",
+      "title": "swift-benchmark"
+    },
+    {
+      "description": "benchmarkData.json; ns/op or ms/op",
+      "format": "androidx",
+      "id": "androidx",
+      "image": "androidx.svg",
+      "input": "target/source-examples/androidx.json",
+      "source": "sources/androidx.oops",
+      "title": "AndroidX Benchmark"
+    },
+    {
+      "description": "PHPBench JSONL report",
+      "format": "phpbench",
+      "id": "phpbench",
+      "image": "phpbench.svg",
+      "input": "target/source-examples/phpbench.jsonl",
+      "source": "sources/phpbench.oops",
+      "title": "PHPBench"
+    },
+    {
+      "description": "results.json rawData; req/s higher is better",
+      "format": "techempower",
+      "id": "techempower",
+      "image": "techempower.svg",
+      "input": "target/source-examples/techempower.json",
+      "source": "sources/techempower.oops",
+      "title": "TechEmpower"
+    },
+    {
+      "description": "Dart benchmark_test default output",
+      "format": "benchmark-test-human",
+      "id": "benchmark-test-human",
+      "image": "benchmark-test-human.svg",
+      "input": "target/source-examples/benchmark-test-human.txt",
+      "source": "sources/benchmark_test_human.oops",
+      "title": "benchmark_test human"
+    },
+    {
+      "description": "Dart benchmark_test --output=benchmarkjs",
+      "format": "benchmark-test-benchmarkjs",
+      "id": "benchmark-test-benchmarkjs",
+      "image": "benchmark-test-benchmarkjs.svg",
+      "input": "target/source-examples/benchmark-test-benchmarkjs.txt",
+      "source": "sources/benchmark_test_benchmarkjs.oops",
+      "title": "benchmark_test BenchmarkJS"
+    },
+    {
+      "description": "Dart benchmark_runner report blocks",
+      "format": "benchmark-runner",
+      "id": "benchmark-runner",
+      "image": "benchmark-runner.svg",
+      "input": "target/source-examples/benchmark-runner.txt",
+      "source": "sources/benchmark_runner.oops",
+      "title": "benchmark_runner"
+    },
+    {
+      "description": "criterion target directory",
+      "format": "criterion",
+      "id": "criterion",
+      "image": "criterion.svg",
+      "input": "examples/criterion",
+      "source": "sources/criterion.oops",
+      "title": "Criterion"
+    },
+    {
+      "description": "Dart benchmark_test --output=jsonl",
+      "format": "benchmark-test-jsonl",
+      "id": "benchmark-test-jsonl",
+      "image": "benchmark-test-jsonl.svg",
+      "input": "target/source-examples/benchmark-test-jsonl.jsonl",
+      "source": null,
+      "title": "benchmark_test JSONL"
+    },
+    {
+      "description": "hyperfine --export-json",
+      "format": "hyperfine",
+      "id": "hyperfine",
+      "image": "hyperfine.svg",
+      "input": "examples/hyperfine.json",
+      "source": null,
+      "title": "hyperfine"
+    }
+  ]
+}
