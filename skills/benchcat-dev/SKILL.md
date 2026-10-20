@@ -196,11 +196,7 @@ and `workflow_dispatch` runs are classified the same way, and the workflow pins 
 `toolchain:` inputs, so local builds should use the same version (`rustup run 1.99.0 cargo ...`) when
 comparing bytes. Every cargo invocation uses `--locked`, so a manifest change without an updated lock
 fails instead of silently resolving a new graph. The action job also runs `scripts/install.sh` against
-the latest release, so installer changes are tested without a rebuild. After a release, a
-`self-benchmark` job times the new binary against the previous release (`scripts/self-benchmark.py`,
-deterministic 5k/20k-row corpus, interleaved medians), renders the comparison with the new binary,
-attaches `performance.svg` to the release and appends the table to the job summary. It is report-only:
-a slowdown adds a warning annotation, it never fails a published release.
+the latest release, so installer changes are tested without a rebuild.
 
 ## Where to change what
 

@@ -265,11 +265,6 @@ Outputs: `svg` and `bytes`. The step summary records both. The binary is downloa
 own repository (`GITHUB_ACTION_REPOSITORY`), not the caller's, and its checksum is verified against the
 release. Set `BENCHCAT_RELEASE_BASE` to a mirror when GitHub release downloads are slow.
 
-Every release also benchmarks itself: the workflow times the new binary against the previous release on
-a deterministic 5k/20k-row corpus, renders the comparison with the new binary, and attaches
-`performance.svg` to the release. The numbers are medians of interleaved runs on one runner, so they are
-informative rather than a gate — a slower release warns, it does not fail.
-
 Ready-made workflows are in [`templates/`](templates/):
 
 - [`rust-criterion.yml`](templates/rust-criterion.yml)
