@@ -97,6 +97,10 @@ pub struct FontSettings {
     /// unreadable, or lacks glyphs. Off by default so existing cards stay
     /// byte-identical.
     pub enable_guaranteed_font: bool,
+    /// Allow `family` names to resolve against installed system fonts after the
+    /// repository `fonts/` directory. Off by default: only the shipped catalogue
+    /// is consulted unless this is enabled.
+    pub enable_system_font: bool,
 }
 
 /// One comparison source: a platform, a language, a branch, ...
@@ -276,15 +280,20 @@ mod tests {
             serde_json::from_str(r#"{"font":{"family":["quicksand","zcool-kuaile"]}}"#).unwrap();
         assert_eq!(list.font.family.unwrap().0, ["quicksand", "zcool-kuaile"]);
         assert!(!list.font.enable_guaranteed_font);
+        assert!(!list.font.enable_system_font);
     }
 
     #[test]
-    fn guaranteed_font_is_opt_in_but_parses() {
+    fn font_opt_ins_default_off_but_parse() {
         let default: Config = serde_json::from_str("{}").unwrap();
         assert!(!default.font.enable_guaranteed_font);
+        assert!(!default.font.enable_system_font);
 
-        let on: Config =
-            serde_json::from_str(r#"{"font":{"enable_guaranteed_font":true}}"#).unwrap();
+        let on: Config = serde_json::from_str(
+            r#"{"font":{"enable_guaranteed_font":true,"enable_system_font":true}}"#,
+        )
+        .unwrap();
         assert!(on.font.enable_guaranteed_font);
+        assert!(on.font.enable_system_font);
     }
 }

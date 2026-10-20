@@ -1,0 +1,38 @@
+{
+  "fonts": [
+    {
+      "file": "mplus-rounded.ttf",
+      "name": "Rounded M PLUS 1c",
+      "covers": "Latin, Kana, JIS Kanji",
+      "default": true
+    },
+    { "file": "comfortaa.ttf", "name": "Comfortaa", "covers": "Latin" },
+    { "file": "gaegu.ttf", "name": "Gaegu", "covers": "Latin, Hangul" },
+    {
+      "file": "jetbrains-mono.ttf",
+      "name": "JetBrains Mono",
+      "covers": "Latin, Greek, Cyrillic"
+    },
+    { "file": "lato.ttf", "name": "Lato", "covers": "Latin, Cyrillic" },
+    {
+      "file": "noto-sans.ttf",
+      "name": "Noto Sans",
+      "covers": "Latin, Greek, Cyrillic"
+    },
+    { "file": "nunito.ttf", "name": "Nunito", "covers": "Latin" },
+    { "file": "quicksand.ttf", "name": "Quicksand", "covers": "Latin" },
+    { "file": "rubik.ttf", "name": "Rubik", "covers": "Latin, Cyrillic, Hebrew" },
+    { "file": "sniglet.ttf", "name": "Sniglet", "covers": "Latin" },
+    { "file": "space-grotesk.ttf", "name": "Space Grotesk", "covers": "Latin" },
+    {
+      "file": "zcool-kuaile.ttf",
+      "name": "ZCOOL KuaiLe",
+      "covers": "Latin, Simplified Chinese"
+    },
+    {
+      "file": "zen-maru-gothic.ttf",
+      "name": "Zen Maru Gothic",
+      "covers": "Latin, Kana, JIS Kanji"
+    }
+  ]
+}

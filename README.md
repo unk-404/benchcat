@@ -122,6 +122,7 @@ The SVG on stdout (`-o -`) is never mixed with logs, and CI does not treat stder
 [font]
 family = ["mplus-rounded"]  # one stem, "a,b", or ["a","b"]
 enable_guaranteed_font = false   # opt-in per-character fallback; see below
+enable_system_font = false        # opt-in family lookup in installed system fonts
 
 [render]
 title = "blit benchmarks"
@@ -158,6 +159,14 @@ from a fixed list: our `fonts/` catalogue (`mplus-rounded`, `zen-maru-gothic`, `
 the configured face is missing or unreadable, the first guaranteed face becomes the primary. Runs fully
 covered by the primary face keep byte-identical output; only runs that actually use a fallback switch to
 per-glyph scaling.
+
+`enable_system_font = false` (default) keeps family lookup inside the repository. When it is `true`, a
+family can also match an installed system face, matched by name (case and punctuation insensitive) and
+including TrueType/OpenType collections. Repository fonts still win, and the option is off by default so
+cards stay reproducible across machines.
+
+For CI and other automated builds, keep both `enable_guaranteed_font` and `enable_system_font` off: they
+can depend on fonts installed on the runner. Use the repository catalogue (`font`) or `font_file` instead.
 
 Two or more `[[series]]` switch to the comparison layout: one row per operation, one bar per source, a
 legend, and one value per bar. Bars are linear and scaled to the row's own best value by default
@@ -206,29 +215,13 @@ Values come from the input document plus `GITHUB_SHA`, `RUNNER_OS` and `RUNNER_A
 
 ## Fonts
 
-`fonts/` holds an OFL-only catalogue; pick one with `[font] family` or `--font`.
+`fonts/` holds an OFL-only catalogue; pick one with `[font] family` or `--font`. The full table —
+coverage, file size and a specimen for every family — is on the
+[Fonts wiki page](https://github.com/unk-404/benchcat/wiki/Fonts).
 
-| Family | File | Covers | Size |
-|---|---|---|---|
-| Rounded M PLUS 1c (default) | `mplus-rounded.ttf` | Latin, Kana, JIS Kanji | 3.4 MB |
-| Quicksand | `quicksand.ttf` | Latin | 122 KB |
-| Nunito | `nunito.ttf` | Latin | 270 KB |
-| Sniglet | `sniglet.ttf` | Latin | 74 KB |
-| Comfortaa | `comfortaa.ttf` | Latin | 197 KB |
-| Zen Maru Gothic | `zen-maru-gothic.ttf` | Latin, Kana, JIS Kanji | 3.7 MB |
-| ZCOOL KuaiLe | `zcool-kuaile.ttf` | Latin, Simplified Chinese | 1.4 MB |
-| Gaegu | `gaegu.ttf` | Latin, Hangul | 3.0 MB |
-| Lato | `lato.ttf` | Latin, Cyrillic | 641 KB |
-| JetBrains Mono | `jetbrains-mono.ttf` | Latin, Greek, Cyrillic | 183 KB |
-| Noto Sans | `noto-sans.ttf` | Latin, Greek, Cyrillic | 2.0 MB |
-| Rubik | `rubik.ttf` | Latin, Cyrillic, Hebrew | 351 KB |
-| Space Grotesk | `space-grotesk.ttf` | Latin | 133 KB |
-
-Each family ships its `-OFL.txt` next to the binary, and a type specimen under
-`assets/fonts/<file-stem>.svg`. After the assets job, CI mirrors the specimens to the repository's
-`Fonts` wiki page (one heading per family, images linked from this repository). The wiki has to be
-created once by hand; until then the job skips. Specimens draw every glyph the face cannot provide as a small pastel
-cat, and keep the row for a script with no coverage at all.
+Each family ships its `-OFL.txt` next to the binary. The generated specimens are committed under
+`assets/fonts/<file-stem>.svg`; CI mirrors them to the wiki (one heading per family, images linked from
+this repository). Specimens draw every glyph the face cannot provide as a small pastel cat.
 
 ## Examples
 
@@ -310,6 +303,9 @@ Ready-made workflows are in [`templates/`](templates/):
 
 Tags are `vYYYY.MM.DD-<short-sha>` (no semantic versions). Each release carries the six target
 archives, `SHA256SUMS`, `benchcat-assets.tar.gz` (gallery and specimens), and SLSA attestations.
+The complete TTF catalogue is also published as `benchcat-fonts.7z` on the rolling
+[`fonts-latest` prerelease](https://github.com/unk-404/benchcat/releases/tag/fonts-latest); it is
+deliberately not marked latest, so the action still resolves a binary release.
 
 ## License
 

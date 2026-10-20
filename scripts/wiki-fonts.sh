@@ -15,7 +15,11 @@ page="$work/Fonts.md"
 
 if [[ "${WIKI_DRY_RUN:-}" == "1" ]]; then
   out="${WIKI_OUT:-${RUNNER_TEMP:-/tmp}/Fonts.md}"
-  python3 scripts/wiki-fonts.py --repo "$repo" --branch "$branch" --out "$out"
+  args=()
+  if [[ "${WIKI_ALLOW_MISSING:-}" == "1" ]]; then
+    args+=(--allow-missing-specimens)
+  fi
+  python3 scripts/wiki-fonts.py --repo "$repo" --branch "$branch" --out "$out" "${args[@]}"
   cat "$out"
   exit 0
 fi

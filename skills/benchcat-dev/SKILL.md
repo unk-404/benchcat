@@ -183,14 +183,20 @@ memory-bound.
 `font/` keeps `skrifa` only for parsing; no font is embedded. `[font] family` is a
 `FontFamilies` (one string, `"a,b"`, or `["a","b"]`, in fallback order). `FontStack` holds the primary face plus
 guaranteed fallbacks (fixed list: repo catalogue then short system list, max four faces). `resolve.rs`
-loads it when `[font] enable_guaranteed_font` is on; the default off path is the old single `Font`.
+loads it when `[font] enable_guaranteed_font` is on; with `enable_system_font` a family name can also
+match installed system faces (name-table match, TTC face indices supported). `Font` stores the collection
+face index, so one `.ttc` can supply several families.
 `svg/atlas.rs` keys glyphs by `(face, gid)`, and `push_text` keeps the old single-face markup whenever a
-run is fully covered by the primary face, switching to per-glyph scaling only for fallback runs.
+run is fully covered by the primary face, switching to per-glyph scaling only for fallback runs. CI must
+keep `enable_guaranteed_font` and `enable_system_font` off: both can depend on runner-installed fonts and
+break byte-identical output.
 
 - `metrics.rs`: advances, ink boxes, line heights.
 - `outline.rs`: `path` cache, `glyph_bounds`, rayon `extract_paths` above 96 glyphs.
 - `resolve.rs`: explicit file -> `BENCHCAT_FONT_DIR` -> `./fonts`; a family must match
   `<stem>.ttf`/`.otf` (default `mplus-rounded`), otherwise the first TTF/OTF in those directories wins.
+  With `enable_system_font` it then searches the platform font directories, matching the font's family
+  name (case/punctuation-insensitive) or file stem, and supports `.ttc`/`.otc` face indices.
   `scripts/render.sh` sets `BENCHCAT_FONT_DIR` to the action's own `fonts/` catalogue, so consumers
   never vendor fonts.
 
@@ -235,6 +241,12 @@ only job that exercises the composite-action download path: GitHub leaves `GITHU
 empty inside composite steps ([community #49245](https://github.com/orgs/community/discussions/49245)),
 so `install.sh` derives `owner/repo` from `GITHUB_ACTION_PATH` (`…/_actions/<owner>/<repo>/<ref>`) and
 falls back to `GITHUB_REPOSITORY` for a local `uses: ./`.
+
+A `font-archive` job follows `assets` on pushes and refreshes the rolling `fonts-latest` release with
+`benchcat-fonts.7z` (LZMA2, `-mx=9`). It is deliberately a prerelease and
+`--latest=false`, so the action's `latest` release stays a binary release; the installer test also
+filters pre-releases. The wiki `Fonts` page is generated from
+`fonts/catalogue.json` plus the committed specimens; README links to it instead of duplicating the table.
 
 A `changes` job classifies the pushed range (or the PR merge base) and sizes the run:
 

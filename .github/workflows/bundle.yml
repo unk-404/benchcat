@@ -11,8 +11,9 @@ name: bundle
 #               run the action test only and stop.
 #   docs        markdown/LICENSE/.gitignore only: nothing to do.
 #
-# After the assets job, a `wiki` job refreshes the repository's Fonts wiki page
-# with one heading and specimen per family. The wiki must exist once; the script
+# After the assets job, a `font-archive` job on pushes refreshes the rolling
+# fonts-latest release with benchcat-fonts.7z, and a `wiki` job refreshes the
+# repository's Fonts wiki page (one heading and specimen per family). The wiki must exist once; the script
 # skips with a notice until then.
 #
 # A `consumer` job after publish uses the action by reference (not `uses: ./`)
@@ -65,10 +66,11 @@ jobs:
         shell: bash
         env:
           WIKI_SOURCE_BRANCH: ${{ github.event.repository.default_branch }}
+          WIKI_ALLOW_MISSING: "1"
         run: |
           set -euo pipefail
-          # Dry-run only: no token, no clone. Catches Python/shell regressions
-          # on every PR, including docs and font-only runs.
+          # Dry-run only: no token, no clone. Specimens may not have been
+          # regenerated yet, so the pre-assets check allows missing ones.
           WIKI_DRY_RUN=1 WIKI_OUT="$RUNNER_TEMP/Fonts.md" bash scripts/wiki-fonts.sh
 
       - id: classify
@@ -326,6 +328,53 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  font-archive:
+    name: package the font catalogue
+    needs: [changes, assets]
+    if: ${{ !cancelled() && github.event_name == 'push' && needs.assets.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      # Includes specimens committed by the assets job.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: Install 7-Zip
+        run: sudo apt-get update && sudo apt-get install -y p7zip-full
+
+      - name: Package fonts
+        shell: bash
+        run: |
+          set -euo pipefail
+          7z a -t7z -m0=lzma2 -mx=9 -mfb=273 -md=64m benchcat-fonts.7z fonts
+          7z t benchcat-fonts.7z
+          sha256sum benchcat-fonts.7z > benchcat-fonts.7z.sha256
+          ls -lh benchcat-fonts.7z
+
+      - name: Publish the rolling fonts release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag=fonts-latest
+          if ! gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+              --target "$(git rev-parse HEAD)" --latest=false --prerelease \
+              --title "benchcat fonts" \
+              --notes "Rolling build of the OFL font catalogue from master. Not a binary release."
+          else
+            # Keep it out of /releases/latest: install.sh must keep resolving a
+            # binary release even when fonts are newer than the last release.
+            gh release edit "$tag" --repo "$GITHUB_REPOSITORY" \
+              --latest=false --prerelease --title "benchcat fonts"
+          fi
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" \
+            benchcat-fonts.7z benchcat-fonts.7z.sha256 --clobber
+
   wiki:
     name: publish font specimens to the wiki
     needs: [changes, assets]
@@ -400,8 +449,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          if ! gh release view --repo "$GITHUB_ACTION_REPOSITORY" >/dev/null 2>&1; then
-            echo "no release in $GITHUB_ACTION_REPOSITORY yet; skipping"
+          if [[ -z "$(gh release list --repo "$GITHUB_ACTION_REPOSITORY" \
+            --exclude-drafts --exclude-pre-releases --limit 1)" ]]; then
+            echo "no stable release in $GITHUB_ACTION_REPOSITORY yet; skipping"
             exit 0
           fi
           export INPUT_VERSION=latest

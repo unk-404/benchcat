@@ -77,6 +77,8 @@ pub struct Font {
     pub leading: f32,
     /// Number of glyphs in the face, from the font's own metrics.
     pub glyph_count: u16,
+    /// Face index inside a TrueType/OpenType collection; 0 for a plain file.
+    face_index: u32,
     glyphs: HashMap<char, Glyph, BuildIdentity>,
     /// `gid -> path`; lazily filled, so only used glyphs cost memory.
     paths: DashMap<u16, String, BuildIdentity>,
@@ -106,8 +108,24 @@ impl Font {
         Self::from_bytes(data, path.to_path_buf())
     }
 
+    pub fn load_face(path: &Path, face_index: u32) -> Result<Self, FontError> {
+        let data = std::fs::read(path).map_err(|source| FontError::Io {
+            path: path.display().to_string(),
+            source,
+        })?;
+        Self::from_bytes_index(data, path.to_path_buf(), face_index)
+    }
+
     pub fn from_bytes(data: Vec<u8>, path: PathBuf) -> Result<Self, FontError> {
-        let font = FontRef::new(&data).map_err(|source| FontError::Parse {
+        Self::from_bytes_index(data, path, 0)
+    }
+
+    pub fn from_bytes_index(
+        data: Vec<u8>,
+        path: PathBuf,
+        face_index: u32,
+    ) -> Result<Self, FontError> {
+        let font = FontRef::from_index(&data, face_index).map_err(|source| FontError::Parse {
             path: path.display().to_string(),
             reason: source.to_string(),
         })?;
@@ -137,6 +155,7 @@ impl Font {
             descent: metrics.descent,
             leading: metrics.leading,
             glyph_count: metrics.glyph_count,
+            face_index,
             glyphs,
             paths: DashMap::with_hasher(BuildIdentity),
             bounds: DashMap::with_hasher(BuildIdentity),
@@ -144,7 +163,7 @@ impl Font {
     }
 
     fn font(&self) -> FontRef<'_> {
-        FontRef::new(&self.data).expect("font was validated during load")
+        FontRef::from_index(&self.data, self.face_index).expect("face was validated during load")
     }
 
     /// Glyph for `ch`, or `None` when the face has no glyph for it.
@@ -187,7 +206,7 @@ mod outline;
 mod resolve;
 mod stack;
 
-pub use resolve::{load_stack, resolve_font};
+pub use resolve::{load_stack, load_stack_with_system, resolve_font};
 pub use stack::FontStack;
 
 #[cfg(test)]

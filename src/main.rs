@@ -11,7 +11,7 @@ use clap::{Parser, Subcommand};
 use tracing::{debug, info};
 
 use benchcat::config::Config;
-use benchcat::font::load_stack;
+use benchcat::font::load_stack_with_system;
 use benchcat::input::{self, Format};
 use benchcat::render::{RenderRequest, RenderedParts, SeriesInput, render_parts};
 
@@ -262,10 +262,11 @@ fn render(args: RenderArgs) -> Result<(), String> {
         *name = name.trim().to_owned();
     }
     families.retain(|name| !name.is_empty());
-    let font = load_stack(
+    let font = load_stack_with_system(
         args.font_file.as_deref(),
         &families,
         config.font.enable_guaranteed_font,
+        config.font.enable_system_font,
     )
     .map_err(|err| {
         format!("{err}\nhint: pass --font-file, set BENCHCAT_FONT_DIR, or place a .ttf in ./fonts")

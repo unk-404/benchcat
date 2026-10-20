@@ -201,6 +201,7 @@ ignored, so the action can omit it.
 [font]
 family = ["mplus-rounded", "zcool-kuaile"]   # "a", "a,b" or ["a","b"]
 enable_guaranteed_font = false              # opt-in fixed fallback list
+enable_system_font = false                  # opt-in system-family lookup
 
 [render]
 title = "my benchmarks"
@@ -266,6 +267,21 @@ and then a short system list, at most four faces. The list is not configurable, 
 default — with it off, behaviour and bytes are exactly as before. If the configured face is missing or
 unreadable, the first guaranteed face becomes the primary. Enable it for mixed-script cards; runs fully
 covered by the primary face stay byte-identical.
+
+`enable_system_font = true` (or `BENCHCAT_FONT__ENABLE_SYSTEM_FONT=true`) lets `family` names resolve
+against installed system fonts after the repository catalogue; name matching ignores case and
+punctuation, and collections are supported. It is off by default and does not change the guaranteed
+list. Repository fonts always win.
+
+### Keep automated builds deterministic
+
+**Leave `enable_guaranteed_font` and `enable_system_font` off in CI.** Both options can consult fonts
+installed on the machine: the guaranteed list falls through to a short system list, and
+`enable_system_font` resolves family names from the OS. A GitHub runner, another runner image and a
+developer laptop can therefore produce different SVG bytes from the same input. The defaults are already
+`false`; do not turn them on in a config consumed by the action or any other automated build. If CI needs
+another script or face, add it to the repository catalogue or pass `font` / `font_file` — never rely on
+runner fonts. Enable these options only for a deliberate, one-off local render.
 
 **Set exactly one font source.** A family list counts as one source. `font_file` overrides it;
 `--font` overrides `[font] family`.
