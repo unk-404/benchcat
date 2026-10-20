@@ -42,7 +42,8 @@ Two machines must produce byte-identical SVGs:
 
 ## Logging
 
-`tracing` is initialised in `src/main.rs`; `RUST_LOG` selects the filter (default `warn`). `info` logs
+`tracing` is initialised in `src/main.rs`; `RUST_LOG` selects the filter and logging is **off by default**
+(`EnvFilter::new("off")`), so normal runs and CI stay silent. `info` logs
 input loading, render and write timings; `debug` adds merge/layout/SVG phase timings and font loading.
 Logs go to stderr, so `-o -` stays a clean SVG stream. Keep hot-loop logging out of the renderer;
 `debug!` costs a disabled callsite check.

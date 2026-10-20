@@ -111,8 +111,8 @@ seconds are formatted as ms/µs.
 
 `benchcat formats` lists the accepted format names.
 
-Set `RUST_LOG=info` (or `debug`) to get stage timings on stderr; the SVG written to a file or stdout
-is unaffected.
+Logging is off unless you opt in: set `RUST_LOG=info` (or `debug`) to get stage timings on stderr. The
+SVG on stdout (`-o -`) is never mixed with logs, and CI does not treat stderr output as failure.
 
 ## Config
 
