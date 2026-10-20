@@ -351,7 +351,7 @@ Ready-made workflows are in [`templates/`](templates/):
 ## Releases
 
 Tags are `vYYYY.MM.DD-<short-sha>` (no semantic versions). Each release carries the six target
-archives, `SHA256SUMS`, `benchcat-assets.tar.gz` (gallery and specimens), and SLSA attestations.
+archives, `SHA256SUMS`, `benchcat-assets.tar.gz` (gallery, specimens and source cards), and SLSA attestations.
 The complete TTF catalogue is also published as `benchcat-fonts.7z` on the rolling
 [`fonts-latest` prerelease](https://github.com/unk-404/benchcat/releases/tag/fonts-latest); it is
 deliberately not marked latest, so the action still resolves a binary release.

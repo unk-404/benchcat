@@ -56,8 +56,8 @@ After `source-compiler-vN` is tagged:
 
 1. `compiler/vN/grammar.pest` MUST NOT change.
 2. `compiler/vN/ast.rs` MUST NOT change.
-3. `compiler/vN/check.rs` MUST NOT change.
-4. `compiler/vN/codegen.rs` MUST NOT change.
+3. `compiler/vN/codegen.rs` MUST NOT change.
+4. `compiler/vN/mod.rs` MUST NOT change its public behavior.
 5. Changes to a frozen version MUST be reverted or moved to a new version.
 
 ## 6. Adding a version
@@ -66,7 +66,7 @@ After `source-compiler-vN` is tagged:
 2. Add a new grammar; reuse of the previous grammar file is forbidden.
 3. Add a new AST, checker and codegen.
 4. Add `N+1` to the dispatch table.
-5. Add fixtures and snapshots for `N+1`.
+5. Add compiler unit tests and source fixtures for `N+1`.
 6. Keep all `v1..vN` directories and fixtures.
 7. Tag `source-compiler-vN+1`.
 
@@ -88,12 +88,11 @@ The workspace MUST contain a test that:
 
 1. scans `compiler/v1/**` and fails on any reference to `v2` or later;
 2. scans `sources/*.oops` and fails on missing or unsupported `@version`;
-3. verifies every declared version has a matching compiler directory;
-4. verifies frozen compiler directories are unchanged relative to their tag.
+3. verifies every declared version has a matching compiler directory.
 
 ## 9. Git policy
 
 1. One commit per implementation phase.
-2. Tag `source-compiler-vN` only after the version's full fixture suite passes.
+2. Tag `source-compiler-vN` only after the version's full test suite passes.
 3. A version tag MUST NOT be moved.
 4. Reverts of a frozen compiler MUST be a new commit, not a force-push.

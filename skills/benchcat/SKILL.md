@@ -1,6 +1,6 @@
 ---
 name: benchcat
-description: Add the benchcat GitHub Action step to a workflow to render benchmark results (criterion, hyperfine, Dart benchmark_test, canonical JSON/JSONL, CSV) as a committed SVG card. Use when wiring a benchmark chart into CI or comparing several sources/platforms. The action installs its own prebuilt binary — never download releases, vendor a binary, or call the CLI in CI.
+description: Add the benchcat GitHub Action step to a workflow to render benchmark results (Criterion, hyperfine, Go, JMH/kotlinx, Google Benchmark, swift-benchmark, PHPBench, TechEmpower, AndroidX, Dart benchmark_test/benchmark_runner, canonical JSON/JSONL/CSV) as a committed SVG card. Use when wiring a benchmark chart into CI or comparing several sources/platforms. The action installs its own prebuilt binary — never download releases, vendor a binary, or call the CLI in CI.
 ---
 
 # benchcat
@@ -123,13 +123,13 @@ The action needs no token and no write permission.
 | `benchmark_test` BenchmarkJS | `--output=benchmarkjs` | `benchmark-test-benchmarkjs` |
 | `benchmark_test` JSONL | `--output=jsonl` | `benchmark_test` |
 | `benchmark_runner` | exported stdout / report | `benchmark-runner` |
-| Dart `benchmark_test` | the JSONL file | `benchmark_test` |
 | anything else | canonical JSON / CSV you emit | `json` / `jsonl` / `csv` |
 | unknown | — | `auto` |
 
 Directory inputs are read recursively in sorted order. `format` also accepts the aliases `ndjson`,
 `dart`, `canonical`, `cargo-criterion`, `java`, `kotlinx`, `gbench`, `c++`, `tfb` and
-`android-benchmark`. Source presets live in `sources/*.oops`; see `sources/README.md`.
+`android-benchmark`. Source presets live in `sources/*.oops`; see `sources/README.md`. The
+[Sources wiki page](https://github.com/unk-404/benchcat/wiki/Sources) shows one mock card per format.
 
 Canonical shape (`benchcat/report@1`):
 
@@ -337,12 +337,15 @@ no-op unless something actually changed.
 ## Example gallery and fonts
 
 Every feature has a committed example under `assets/examples/` (see the README table); fonts are the
-OFL catalogue under `fonts/`, each with a type specimen in `assets/fonts/`.
+OFL catalogue under `fonts/`, each with a type specimen in `assets/fonts/`. Source-format cards live in
+`assets/sources/` and are rendered by `cargo run --example sources`; the matching wiki page is
+[Sources](https://github.com/unk-404/benchcat/wiki/Sources).
 
 ## Local debugging only
 
 ```bash
-cargo install --git https://github.com/unk-404/benchcat --branch master
+git clone https://github.com/unk-404/benchcat
+cargo install --path benchcat/crates/benchcat
 benchcat formats
 benchcat render target/criterion -o /tmp/bench.svg --format criterion
 benchcat render --config benchcat.toml --stdout  # [[series]] come from the config

@@ -5,9 +5,9 @@ name: bundle
 #   full        Rust sources, manifests, the toolchain or .gitattributes
 #               changed: verify on 3 OS, byte identity, assets, the action test,
 #               then (outside pull requests) a 6-target release build + publish.
-#   assets      only fonts/, assets/ or example data changed: regenerate the
-#               gallery and specimens, then refresh fonts-latest and the wiki
-#               (on pushes). Fonts are data, not compiled in.
+#   assets      only fonts/, assets/, sources/ or example data changed:
+#               regenerate the gallery, specimens and source cards, then refresh
+#               fonts-latest and the wiki (on pushes). Fonts are data, not compiled in.
 #   action      only scripts/, action.yml, templates/ or the workflow changed:
 #               run the action test only and stop.
 #   docs        markdown/LICENSE/.gitignore only: nothing to do.
@@ -169,11 +169,11 @@ jobs:
 
       - name: Clippy
         if: runner.os == 'Linux'
-        run: cargo clippy --locked --all-targets -- -D warnings
+        run: cargo clippy --locked --workspace --all-targets -- -D warnings
 
       - name: Test
         # --all-targets would also execute the development-only bench target.
-        run: cargo test --locked --lib --bins --tests --examples
+        run: cargo test --locked --workspace --lib --bins --tests --examples
 
       - name: Render one card per platform
         shell: bash
@@ -335,6 +335,7 @@ jobs:
             assets/examples/*.svg
             assets/fonts/*.svg
             assets/sources/*.svg
+            assets/sources/catalogue.json
           if-no-files-found: error
           retention-days: 7
 
@@ -595,7 +596,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf dist/benchcat-assets.tar.gz -C . assets/examples assets/fonts
+          tar -czf dist/benchcat-assets.tar.gz -C . assets/examples assets/fonts assets/sources
           cd dist
           sha256sum *.tar.gz > SHA256SUMS
           sha256sum -c SHA256SUMS

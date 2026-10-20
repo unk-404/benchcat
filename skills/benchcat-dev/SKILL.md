@@ -38,6 +38,7 @@ docs/spec/                 normative OOPS and versioning specifications
 fonts/, assets/            runtime catalogue and committed generated assets
 ```
 
+Path references below are relative to `crates/benchcat/` unless they start with `crates/` or `sources/`.
 Dependencies only flow downwards: `render` -> `layout` -> `svg` -> `font`/`model`. `layout` must not
 know about SVG strings; `svg` must not compute geometry.
 
@@ -53,7 +54,7 @@ Two machines must produce byte-identical SVGs:
 
 ## Logging
 
-`tracing` is initialised in `src/main.rs` only when `--log FILTER` is passed; without it there is no
+`tracing` is initialised in `crates/benchcat/src/main.rs` only when `--log FILTER` is passed; without it there is no
 subscriber at all, so the composite action and CI stay silent. `RUST_LOG` is not consulted. `--log info`
 prints input loading/render/write timings, `--log debug` adds merge/layout/SVG phases and font loading.
 Logs go to stderr, so `-o -` stays a clean SVG stream. Keep hot-loop logging out of the renderer;
@@ -61,14 +62,14 @@ Logs go to stderr, so `-o -` stays a clean SVG stream. Keep hot-loop logging out
 
 ## Map types
 
-`params`/`metrics`/`extra` use `SmallMap` (`src/small_map.rs`): an `Empty`/`One`/`Many` enum that keeps
+`params`/`metrics`/`extra` use `SmallMap` (`crates/benchcat/src/small_map.rs`): an `Empty`/`One`/`Many` enum that keeps
 the common single entry inline, spills to a sorted `Vec` on the second key, and has hand-written serde.
 A row has 0-3 entries, where `BTreeMap` pays a node allocation and `IndexMap` pays a hash-table
 allocation; the microbench shows `SmallMap` ~2x faster than `BTreeMap` for one entry, ~1.4x for three,
 and ~20-25% faster serde parsing. Sorted order is part of the contract (deterministic note text and
 serialization), so do not swap it for an insertion-ordered map.
 
-Numeric-key `HashMap`s use `hash::BuildIdentity` (see `svg/atlas.rs`, `examples/specimen.rs`); string-key
+Numeric-key `HashMap`s use `hash::BuildIdentity` (see `svg/atlas.rs`, `crates/benchcat/examples/specimen.rs`); string-key
 maps use `hashbrown`. The font caches are `DashMap`, not `Mutex<HashMap>`.
 
 ## Parallelism
@@ -181,7 +182,7 @@ strings.
 
 ## Allocator
 
-The binary uses `mimalloc` as its global allocator (`src/main.rs`). It is a target-specific dependency,
+The binary uses `mimalloc` as its global allocator (`crates/benchcat/src/main.rs`). It is a target-specific dependency,
 so the musl releases keep the system allocator and do not need a C toolchain for that target.
 
 Allocation was a real bottleneck: switching allocators cut a 20k-row card from 420 ms to 299 ms at one
@@ -234,10 +235,10 @@ the README and the integration skill, and add a gallery example if the key chang
 
 ## Gallery and specimens
 
-- `examples/gallery.rs` holds one block per figure (`01-basic` ... `16-font-fallback`).
-- `examples/specimen.rs` renders one type specimen per TTF/OTF in `fonts/`.
+- `crates/benchcat/examples/gallery.rs` holds one block per figure (`01-basic` ... `16-font-fallback`).
+- `crates/benchcat/examples/specimen.rs` renders one type specimen per TTF/OTF in `fonts/`.
 - New behaviour must land as a new gallery example, generated with the real code path.
-- Assets live under `assets/examples/` and `assets/fonts/`; the CI `assets` job regenerates and commits
+- Assets live under `assets/examples/`, `assets/fonts/` and `assets/sources/`; the CI `assets` job regenerates and commits
   them on Linux. Never hand-edit or hand-merge an SVG.
 
 ## Release
@@ -265,8 +266,8 @@ A `changes` job classifies the pushed range (or the PR merge base) and sizes the
 
 | changed paths | runs |
 |---|---|
-| `Cargo.toml`, `Cargo.lock`, `crates/**/*.rs`, `crates/**/Cargo.toml`, `sources/**/*.oops`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
-| `fonts/`, `assets/`, example data (`examples/**` except `.rs`) | assets only (fonts are runtime inputs, not compiled in) |
+| `Cargo.toml`, `Cargo.lock`, `crates/**/*.rs`, `crates/**/*.pest`, `crates/**/Cargo.toml`, `sources/**/*.oops`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
+| `fonts/`, `assets/` (including `assets/sources/`), example data (`examples/**` except `.rs`) | assets only (fonts are runtime inputs, not compiled in) |
 | `scripts/`, `action.yml`, `templates/`, `.github/` | the action test only |
 | markdown, `LICENSE`, `.gitignore` | nothing beyond classification |
 | anything unrecognised | full chain (safe default) |
@@ -279,19 +280,20 @@ fails instead of silently resolving a new graph. The action job also runs `scrip
 the latest release, so installer changes are tested without a rebuild.
 
 The `wiki` job runs after `assets` on pushes: it clones `${repo}.wiki.git`, rewrites `Fonts.md` from
-`fonts/catalogue.json` (table plus one heading/specimen per family, linking the raw
-`assets/fonts/*.svg` URLs) and pushes only when the page changed. The wiki repository exists; if it is
-missing or the token cannot push, the script exits with a notice. Set a `WIKI_TOKEN` secret only if the
-default `GITHUB_TOKEN` cannot push the wiki.
+`fonts/catalogue.json` (table plus one heading/specimen per family) and `Sources.md` from
+`assets/sources/catalogue.json` (one heading/card per source), links the committed raw images, and
+pushes only when a page changed. The wiki repository exists; if it is missing or the token cannot push,
+the script exits with a notice. Set a `WIKI_TOKEN` secret only if the default `GITHUB_TOKEN` cannot
+push the wiki.
 
 ## Where to change what
 
 | Want | Touch |
 |---|---|
-| new card element / colour | `svg/theme.rs`, `svg/emit.rs` |
-| new geometry rule | `layout/engine.rs` |
-| new input format | `input/` or `adapters/`, then `Format` |
-| new config key | `config.rs`, `render/`, docs |
-| bar scaling policy | `render/merge.rs` (`bar_scale`, `bar_curve`) |
-| font metrics | `font/metrics.rs` |
-| placeholders / captures | `template.rs`, `rows.rs` |
+| new card element / colour | `crates/benchcat/src/svg/theme.rs`, `svg/emit.rs` |
+| new geometry rule | `crates/benchcat/src/layout/engine.rs` |
+| new input format | add `sources/<name>.oops`; see `docs/spec/oops-v1.md` |
+| new config key | `crates/benchcat/src/config.rs`, `render/`, docs |
+| bar scaling policy | `crates/benchcat/src/render/merge.rs` (`bar_scale`, `bar_curve`) |
+| font metrics | `crates/benchcat/src/font/metrics.rs` |
+| placeholders / captures | `crates/benchcat/src/template.rs`, `rows.rs` |

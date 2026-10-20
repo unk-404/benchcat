@@ -347,5 +347,5 @@ A conforming implementation MUST:
 1. accept every construct in this specification;
 2. reject every construct not in this specification;
 3. select the compiler by exact `@version`;
-4. pass the v1 fixture suite and generated-code snapshots;
+4. pass the v1 compiler unit tests and source integration tests;
 5. retain a frozen v1 compiler after release.
