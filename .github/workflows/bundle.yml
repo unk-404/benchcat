@@ -29,7 +29,6 @@ on:
     paths-ignore:
       - "assets/examples/**"
       - "assets/fonts/**"
-      - "**.md"
   pull_request:
   workflow_dispatch:
 
