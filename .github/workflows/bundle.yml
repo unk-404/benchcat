@@ -6,15 +6,15 @@ name: bundle
 #               changed: verify on 3 OS, byte identity, assets, the action test,
 #               then (outside pull requests) a 6-target release build + publish.
 #   assets      only fonts/, assets/ or example data changed: regenerate the
-#               gallery and specimens and stop. Fonts are data, not compiled in.
+#               gallery and specimens, then refresh fonts-latest and the wiki
+#               (on pushes). Fonts are data, not compiled in.
 #   action      only scripts/, action.yml, templates/ or the workflow changed:
 #               run the action test only and stop.
 #   docs        markdown/LICENSE/.gitignore only: nothing to do.
 #
 # After the assets job, a `font-archive` job on pushes refreshes the rolling
 # fonts-latest release with benchcat-fonts.7z, and a `wiki` job refreshes the
-# repository's Fonts wiki page (one heading and specimen per family). The wiki must exist once; the script
-# skips with a notice until then.
+# repository's Fonts wiki page (one heading and specimen per family).
 #
 # A `consumer` job after publish uses the action by reference (not `uses: ./`)
 # and installs the freshly published binary, which is the only way to exercise
@@ -182,7 +182,13 @@ jobs:
           # platform into the card. Unset them here: the byte comparison is
           # about the renderer being a pure function of the input, not about
           # suppressing provenance in normal runs.
+          #
+          # The two BENCHCAT_* variables are runtime knobs, not config fields:
+          # keeping them set guards against the action's BENCHCAT_FONT_DIR
+          # leaking into config-rs as an unknown `font_dir` key.
           env -u GITHUB_SHA -u RUNNER_OS -u RUNNER_ARCH \
+            BENCHCAT_FONT_DIR=fonts \
+            BENCHCAT_RELEASE_BASE=https://example.invalid \
             cargo run --locked --quiet -- render examples/bench.jsonl -o target/bench.svg
 
       - uses: actions/upload-artifact@v7
@@ -343,7 +349,9 @@ jobs:
           ref: ${{ github.event.repository.default_branch }}
 
       - name: Install 7-Zip
-        run: sudo apt-get update && sudo apt-get install -y p7zip-full
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y 7zip || sudo apt-get install -y p7zip-full
 
       - name: Package fonts
         shell: bash

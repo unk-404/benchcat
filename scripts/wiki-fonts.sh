@@ -2,9 +2,9 @@
 # Refresh the GitHub wiki "Fonts" page from the committed specimens.
 #
 # Images stay in the main repository; the wiki page links their raw URLs, so
-# there is one copy of every SVG. The wiki must exist (open the Wiki tab and
-# create the first page once); until then this script exits successfully with a
-# notice so the release workflow is not blocked.
+# there is one copy of every SVG. If the wiki repository is unavailable (not
+# initialized or the token cannot read it), this script exits successfully with
+# a notice so the release workflow is not blocked.
 set -euo pipefail
 
 repo="${GITHUB_REPOSITORY:?}"
@@ -29,7 +29,7 @@ fi
 rm -rf "$work"
 export GIT_TERMINAL_PROMPT=0
 if ! git clone "https://x-access-token:${token}@github.com/${repo}.wiki.git" "$work" >/dev/null 2>&1; then
-  echo "::notice::${repo}.wiki.git is not available; create the wiki once and rerun"
+  echo "::notice::${repo}.wiki.git is not available; check that the wiki exists and the token can read it"
   exit 0
 fi
 

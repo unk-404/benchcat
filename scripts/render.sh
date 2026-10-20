@@ -23,6 +23,10 @@ fi
 # No positional paths is fine when benchcat.toml defines [[series]]; when
 # neither is present the CLI reports the precise error.
 out="${INPUT_OUT:-assets/benchmarks.svg}"
+if [[ "$out" == "-" ]]; then
+  printf '[benchcat] error: the action needs a file path for out, not -\n' >&2
+  exit 2
+fi
 format="${INPUT_FORMAT:-auto}"
 args=(render)
 # Guard the expansion: bash 3.2 (macOS /bin/bash) treats "${arr[@]}" on an

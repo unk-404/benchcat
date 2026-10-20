@@ -14,7 +14,7 @@ it, not using it.
 src/
   lib.rs            module wiring + re-exports
   main.rs           clap CLI: `render`, `formats`
-  config.rs         benchcat.toml via config-rs (file + BENCHCAT_* env)
+  config.rs         benchcat.toml via config-rs (file + BENCHCAT_RENDER__*/FONT__*)
   model/            Benchmark, Meta, Report, Unit, UnitKind, formatting
   input/            format detection + json/jsonl/csv/benchmark_test readers
   adapters/         criterion directory and hyperfine JSON importers
@@ -215,13 +215,15 @@ The gallery defaults to `mplus-rounded`; changing the default font changes every
 
 ## Config
 
-`Config::load` layers the TOML file with `BENCHCAT_*` environment overrides through `config-rs`
-(`toml` feature only). Add new keys to `Render` with a serde default, update `Default`, document them in
+`Config::load` layers the TOML file with only `BENCHCAT_RENDER__*` and `BENCHCAT_FONT__*` environment
+overrides through `config-rs` (`toml` feature only). Runtime knobs such as `BENCHCAT_FONT_DIR` and
+`BENCHCAT_RELEASE_BASE` are filtered out first; otherwise they become unknown `font_dir`/`release_base`
+config fields. Add new keys to `Render` with a serde default, update `Default`, document them in
 the README and the integration skill, and add a gallery example if the key changes output.
 
 ## Gallery and specimens
 
-- `examples/gallery.rs` holds one block per figure (`01-basic` ... `15-bar-scale`).
+- `examples/gallery.rs` holds one block per figure (`01-basic` ... `16-font-fallback`).
 - `examples/specimen.rs` renders one type specimen per TTF/OTF in `fonts/`.
 - New behaviour must land as a new gallery example, generated with the real code path.
 - Assets live under `assets/examples/` and `assets/fonts/`; the CI `assets` job regenerates and commits
@@ -252,7 +254,7 @@ A `changes` job classifies the pushed range (or the PR merge base) and sizes the
 
 | changed paths | runs |
 |---|---|
-| `Cargo.toml`, `Cargo.lock`, `src/`, `examples/`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
+| `Cargo.toml`, `Cargo.lock`, `src/`, `examples/**/*.rs`, `.cargo/`, `rust-toolchain*`, `.gitattributes` | full chain, and outside PRs a release build + publish |
 | `fonts/`, `assets/`, example data (`examples/**` except `.rs`) | assets only (fonts are runtime inputs, not compiled in) |
 | `scripts/`, `action.yml`, `templates/`, `.github/` | the action test only |
 | markdown, `LICENSE`, `.gitignore` | nothing beyond classification |
@@ -265,10 +267,11 @@ comparing bytes. Every cargo invocation uses `--locked`, so a manifest change wi
 fails instead of silently resolving a new graph. The action job also runs `scripts/install.sh` against
 the latest release, so installer changes are tested without a rebuild.
 
-The `wiki` job runs after `assets` on pushes: it clones `${repo}.wiki.git`, rewrites `Fonts.md` with one
-heading and specimen per family (linking the raw `assets/fonts/*.svg` URLs) and pushes only when the page
-changed. The wiki must be initialized once by hand; before that the script exits with a notice. Set a
-`WIKI_TOKEN` secret only if the default `GITHUB_TOKEN` cannot push the wiki.
+The `wiki` job runs after `assets` on pushes: it clones `${repo}.wiki.git`, rewrites `Fonts.md` from
+`fonts/catalogue.json` (table plus one heading/specimen per family, linking the raw
+`assets/fonts/*.svg` URLs) and pushes only when the page changed. The wiki repository exists; if it is
+missing or the token cannot push, the script exits with a notice. Set a `WIKI_TOKEN` secret only if the
+default `GITHUB_TOKEN` cannot push the wiki.
 
 ## Where to change what
 

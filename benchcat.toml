@@ -1,5 +1,5 @@
 [font]
-# File stem inside ./fonts; see the font catalogue in README.md.
+# File stem inside ./fonts; catalogue metadata: fonts/catalogue.json.
 family = "mplus-rounded"
 
 [render]

@@ -227,6 +227,17 @@ impl Config {
         let display = path.display().to_string();
         // Layered sources: the TOML file, then `BENCHCAT_*` environment
         // overrides (`BENCHCAT_RENDER__TITLE`, `BENCHCAT_FONT__FAMILY`, ...).
+        //
+        // Only actual config overrides are passed to config-rs. Other
+        // `BENCHCAT_*` variables are runtime knobs, not config fields:
+        // `BENCHCAT_FONT_DIR` would otherwise become `font_dir` and
+        // `BENCHCAT_RELEASE_BASE` would become `release_base`, both rejected by
+        // `deny_unknown_fields` when the action runs the CLI.
+        let overrides: config::Map<String, String> = std::env::vars()
+            .filter(|(key, _)| {
+                key.starts_with("BENCHCAT_RENDER__") || key.starts_with("BENCHCAT_FONT__")
+            })
+            .collect();
         // Only the `toml` feature is enabled: json/yaml/ini/ron/json5, async
         // and case conversion are not used by this tool.
         let settings = config::Config::builder()
@@ -235,7 +246,8 @@ impl Config {
                 config::Environment::with_prefix("BENCHCAT")
                     .prefix_separator("_")
                     .separator("__")
-                    .try_parsing(true),
+                    .try_parsing(true)
+                    .source(Some(overrides)),
             )
             .build()
             .map_err(|err| ConfigError::Invalid {

@@ -282,9 +282,9 @@ The action carries the OFL font catalogue and points the renderer at it at runti
 download or commit fonts. Leave `font` empty for `mplus-rounded`, or name a catalogue family. Use
 `font_file` only for a custom face you already have.
 
-Outputs: `svg` and `bytes`. The step summary records both. The binary is downloaded from this action's
-own repository (`GITHUB_ACTION_REPOSITORY`), not the caller's, and its checksum is verified against the
-release. Set `BENCHCAT_RELEASE_BASE` to a mirror when GitHub release downloads are slow.
+Outputs: `svg` and `bytes`. The step summary records both. The action derives its own repository from `GITHUB_ACTION_PATH` (GitHub leaves
+`GITHUB_ACTION_REPOSITORY` empty inside composite steps) and falls back to `GITHUB_REPOSITORY` for a local
+`uses: ./`, never the caller's repository. The checksum is verified against the release. Set `BENCHCAT_RELEASE_BASE` to a mirror when GitHub release downloads are slow.
 
 Ready-made workflows are in [`templates/`](templates/):
 

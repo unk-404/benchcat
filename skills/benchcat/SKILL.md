@@ -100,9 +100,9 @@ Outputs: `svg`, `bytes` — both appear in the step summary.
 
 Binary resolution: `tool_path` → explicit `version` → the action tag when it is a release tag → the
 latest release. Cached under `RUNNER_TOOL_CACHE/benchcat/` and verified against the release's
-`SHA256SUMS` (or a per-archive `.sha256` when present). Downloads come from the action's own repository
-(`GITHUB_ACTION_REPOSITORY`), not your repository; `BENCHCAT_RELEASE_BASE` overrides the release base
-for mirrors.
+`SHA256SUMS` (or a per-archive `.sha256` when present). The action derives its own repository from
+`GITHUB_ACTION_PATH` (GitHub leaves `GITHUB_ACTION_REPOSITORY` empty inside composite steps), never your
+repository; `BENCHCAT_RELEASE_BASE` overrides the release base for mirrors.
 
 The action needs no token and no write permission.
 
@@ -285,9 +285,9 @@ runner fonts. Enable these options only for a deliberate, one-off local render.
 
 **Set exactly one font source.** A family list counts as one source. `font_file` overrides it;
 `--font` overrides `[font] family`.
-`BENCHCAT_FONT__FAMILY` (double underscore) is the config override; do not set `BENCHCAT_FONT` or
-`BENCHCAT_FONT_FAMILY`, and do not set `BENCHCAT_FONT_DIR` when the action already provides it — those
-combinations are what produce config type/unknown-field errors.
+`BENCHCAT_FONT__FAMILY` (double underscore) is the only font config override; `BENCHCAT_FONT` and
+`BENCHCAT_FONT_FAMILY` are ignored. Leave `BENCHCAT_FONT_DIR` alone when the action already sets it: it is
+a runtime path, not a config key.
 
 Each `[render]` key can be overridden from the environment: `BENCHCAT_RENDER__TITLE`,
 `BENCHCAT_RENDER__WIDTH`, `BENCHCAT_FONT__FAMILY` (double underscore nests).
