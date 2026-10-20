@@ -9,7 +9,9 @@
 //! style chosen from the ink of the glyphs that row *can* render. That keeps the
 //! cats from crowding dense CJK sample lines.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
+
+use benchcat::hash::BuildIdentity;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -403,11 +405,11 @@ fn specimen(font: &Font) -> String {
         texts.push(text);
     }
     let mut order: Vec<u16> = Vec::new();
-    let mut index: HashMap<u16, usize> = HashMap::new();
+    let mut index: HashMap<u16, usize, BuildIdentity> = HashMap::default();
     for value in &texts {
         for ch in value.chars() {
             if let Some(glyph) = font.glyph(ch)
-                && let std::collections::hash_map::Entry::Vacant(slot) = index.entry(glyph.gid)
+                && let hashbrown::hash_map::Entry::Vacant(slot) = index.entry(glyph.gid)
             {
                 slot.insert(order.len());
                 order.push(glyph.gid);
@@ -718,7 +720,7 @@ fn text_run(
     svg: &mut String,
     font: &Font,
     paths: &[String],
-    index: &HashMap<u16, usize>,
+    index: &HashMap<u16, usize, BuildIdentity>,
     value: &str,
     x: f32,
     baseline: f32,

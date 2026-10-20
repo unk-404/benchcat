@@ -40,6 +40,15 @@ Two machines must produce byte-identical SVGs:
   and glyph extraction returns results in `gids` order even when rayon runs;
 - `.gitattributes` forces LF; never commit a CRLF SVG.
 
+## Map types
+
+The model uses std `BTreeMap` for `params`/`metrics`/`extra`: those maps are tiny, and an A/B run with
+the render benchmark showed the bbtree-backed alternative ~20% slower on parse/full because every row
+would allocate a 1 KB page on first insert.
+
+Numeric-key `HashMap`s use `hash::BuildIdentity` (see `svg/atlas.rs`, `examples/specimen.rs`); string-key
+maps use `hashbrown`. The font caches are `DashMap`, not `Mutex<HashMap>`.
+
 ## Parallelism
 
 rayon is used only where work is independent and the original order can be restored:

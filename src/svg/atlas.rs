@@ -1,6 +1,8 @@
 //! Glyph atlas and text emission.
 
-use std::collections::HashMap;
+use hashbrown::HashMap;
+
+use crate::hash::BuildIdentity;
 
 use crate::font::Font;
 
@@ -14,16 +16,14 @@ pub(crate) struct Atlas {
 
 impl Atlas {
     pub(crate) fn build(font: &Font, texts: &[(&str, f32)]) -> (Self, Vec<String>) {
-        let mut index: HashMap<u16, usize> = HashMap::new();
+        let mut index: HashMap<u16, usize, BuildIdentity> = HashMap::default();
         let mut gids: Vec<u16> = Vec::new();
         let mut missing: Vec<char> = Vec::new();
         for (text, _) in texts {
             for ch in text.chars() {
                 match font.glyph(ch) {
                     Some(glyph) => {
-                        if let std::collections::hash_map::Entry::Vacant(slot) =
-                            index.entry(glyph.gid)
-                        {
+                        if let hashbrown::hash_map::Entry::Vacant(slot) = index.entry(glyph.gid) {
                             slot.insert(gids.len());
                             gids.push(glyph.gid);
                         }

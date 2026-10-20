@@ -7,7 +7,7 @@
 use std::hash::{BuildHasher, Hasher};
 
 #[derive(Default)]
-pub(crate) struct IdentityHasher {
+pub struct IdentityHasher {
     state: u64,
 }
 
@@ -48,7 +48,7 @@ impl Hasher for IdentityHasher {
 }
 
 #[derive(Default, Clone, Copy)]
-pub(crate) struct BuildIdentity;
+pub struct BuildIdentity;
 
 impl BuildHasher for BuildIdentity {
     type Hasher = IdentityHasher;

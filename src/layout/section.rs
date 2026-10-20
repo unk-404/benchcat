@@ -6,8 +6,7 @@ use super::RowPlan;
 /// group form one untitled block.
 pub(crate) fn sections_of(rows: &[RowPlan]) -> Vec<(Option<String>, Vec<usize>)> {
     let mut sections: Vec<(Option<String>, Vec<usize>)> = Vec::new();
-    let mut index: std::collections::HashMap<Option<String>, usize> =
-        std::collections::HashMap::new();
+    let mut index: hashbrown::HashMap<Option<String>, usize> = hashbrown::HashMap::default();
     for (row_index, row) in rows.iter().enumerate() {
         let key = row.group.clone();
         let slot = *index.entry(key.clone()).or_insert_with(|| {
