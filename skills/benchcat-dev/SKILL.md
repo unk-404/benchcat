@@ -49,11 +49,12 @@ Logs go to stderr, so `-o -` stays a clean SVG stream. Keep hot-loop logging out
 
 ## Map types
 
-`params`/`metrics`/`extra` use `SmallMap` (`src/small_map.rs`): a sorted `Vec` with binary-search
-insert/get and hand-written serde. A row has 0-3 entries, where `BTreeMap` pays a node allocation and
-`IndexMap` pays a hash-table allocation; the microbench shows `SmallMap` ~2x faster than `BTreeMap` for
-one entry, ~1.4x for three, and ~20-25% faster serde parsing. Sorted order is part of the contract
-(deterministic note text and serialization), so do not swap it for an insertion-ordered map.
+`params`/`metrics`/`extra` use `SmallMap` (`src/small_map.rs`): an `Empty`/`One`/`Many` enum that keeps
+the common single entry inline, spills to a sorted `Vec` on the second key, and has hand-written serde.
+A row has 0-3 entries, where `BTreeMap` pays a node allocation and `IndexMap` pays a hash-table
+allocation; the microbench shows `SmallMap` ~2x faster than `BTreeMap` for one entry, ~1.4x for three,
+and ~20-25% faster serde parsing. Sorted order is part of the contract (deterministic note text and
+serialization), so do not swap it for an insertion-ordered map.
 
 Numeric-key `HashMap`s use `hash::BuildIdentity` (see `svg/atlas.rs`, `examples/specimen.rs`); string-key
 maps use `hashbrown`. The font caches are `DashMap`, not `Mutex<HashMap>`.
@@ -150,8 +151,9 @@ strings.
 - `attr` escapes `& < > " '`; `attr_raw` is only for values this crate generated (colours, path data).
 - `attr_num` prints whole numbers without the format machinery but with the same digits as `{:.N}`;
   changing a precision changes committed assets.
-- The writer owns one pre-sized buffer: header, defs, decorations and rows all append to it. Do not
-  reintroduce a second body buffer.
+- `svg::render` returns one string; `svg::render_parts` returns prefix + row chunks + suffix, and the
+  CLI writes those pieces directly to the file, avoiding a second full-size concatenation. Both paths
+  must produce identical bytes.
 - Glyph ids resolve through `Atlas::index` (`gid -> path id`, `u32::MAX` = absent), not a HashMap.
 
 ## Render pipeline
