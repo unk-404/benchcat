@@ -5,6 +5,12 @@ set -euo pipefail
 
 log() { printf '[benchcat] %s\n' "$*"; }
 
+# The action checkout carries the OFL catalogue. Use it unless the caller
+# already picked a font source; consumers must not vendor fonts themselves.
+if [[ -z "${BENCHCAT_FONT_DIR:-}" && -z "${INPUT_FONT_FILE:-}" && -d "${GITHUB_ACTION_PATH:-}/fonts" ]]; then
+  export BENCHCAT_FONT_DIR="${GITHUB_ACTION_PATH}/fonts"
+fi
+
 input="${INPUT_INPUT:-}"
 
 paths=()

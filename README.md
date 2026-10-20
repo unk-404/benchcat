@@ -100,8 +100,8 @@ seconds are formatted as ms/µs.
 | `--out <FILE>` | Output path; `-` writes to stdout |
 | `--format <FORMAT>` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
 | `--config <FILE>` | Defaults to `./benchcat.toml` when present |
-| `--font <NAME>` | Family inside `./fonts` |
-| `--font-file <FILE>` | Explicit TTF/OTF |
+| `--font <NAME>` | Family inside `./fonts` (or `BENCHCAT_FONT_DIR`), e.g. `quicksand` |
+| `--font-file <FILE>` | Explicit TTF/OTF path |
 | `--title` / `--subtitle` / `--footer` | Override the three text lines |
 | `--width <PX>` | Canvas width (default 920) |
 | `--min-height <PX>` | Keep the card at least this tall |
@@ -259,10 +259,14 @@ git, tokens or pull requests.
 | `format` | `auto` | Same values as `--format` |
 | `config` | — | `benchcat.toml` (auto-discovered when omitted) |
 | `out` | `assets/benchmarks.svg` | Output path |
-| `font` | — | Family inside `./fonts` |
-| `font_file` | — | Explicit TTF/OTF |
+| `font` | — | Family from the bundled catalogue (or `./fonts`), e.g. `quicksand` |
+| `font_file` | — | Custom TTF/OTF; the bundled catalogue needs no file |
 | `version` | `auto` | Release tag; `auto` follows the action ref, else `latest` |
 | `tool_path` | — | Use an existing binary, no download |
+
+The action carries the OFL font catalogue and points the renderer at it at runtime: do not add,
+download or commit fonts. Leave `font` empty for `mplus-rounded`, or name a catalogue family. Use
+`font_file` only for a custom face you already have.
 
 Outputs: `svg` and `bytes`. The step summary records both. The binary is downloaded from this action's
 own repository (`GITHUB_ACTION_REPOSITORY`), not the caller's, and its checksum is verified against the

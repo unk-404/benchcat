@@ -20,10 +20,10 @@ inputs:
     description: Output SVG path
     default: assets/benchmarks.svg
   font:
-    description: Font family inside ./fonts, for example "quicksand"
+    description: Family from the bundled OFL catalogue (or ./fonts), for example "quicksand"
     required: false
   font_file:
-    description: Explicit TTF/OTF path, bypassing the font catalogue
+    description: Explicit TTF/OTF path for a custom face; the bundled catalogue needs no file
     required: false
   version:
     description: Release tag such as v2026.10.19-cd5cd87; "auto" follows the action ref or latest

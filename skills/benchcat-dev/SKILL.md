@@ -184,8 +184,10 @@ memory-bound.
 
 - `metrics.rs`: advances, ink boxes, line heights.
 - `outline.rs`: `path` cache, `glyph_bounds`, rayon `extract_paths` above 96 glyphs.
-- `resolve.rs`: explicit file -> `./fonts/<family>.ttf` (default family `mplus-rounded`) -> first
-  TTF/OTF on disk -> `BENCHCAT_FONT_DIR` entries.
+- `resolve.rs`: explicit file -> `BENCHCAT_FONT_DIR` -> `./fonts`; a family must match
+  `<stem>.ttf`/`.otf` (default `mplus-rounded`), otherwise the first TTF/OTF in those directories wins.
+  `scripts/render.sh` sets `BENCHCAT_FONT_DIR` to the action's own `fonts/` catalogue, so consumers
+  never vendor fonts.
 
 Caches and lookups:
 

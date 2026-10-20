@@ -21,6 +21,11 @@ Renders benchmark output as one deterministic SVG card, inside your CI.
     out: assets/benchmarks.svg
 ```
 
+**Fonts are automatic.** The action carries the OFL catalogue and points the renderer at it at
+runtime. Do not add a `fonts/` directory, download TTFs, or commit font files. Leave `font` unset for the
+default (`mplus-rounded`) or name a catalogue family; use `font_file` only for a custom TTF you already
+have.
+
 That is the whole integration. The action writes the SVG where `out` points (parent directories are
 created) and exposes `svg` and `bytes` outputs. It reads the checked-out workspace, so run
 `actions/checkout` first; `input` and `out` are relative to the repository root.
@@ -86,8 +91,8 @@ For pull requests, skip the commit and upload `out` as an artifact instead.
 | `format` | `auto` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine` |
 | `config` | — | `benchcat.toml`; auto-discovered when omitted |
 | `out` | `assets/benchmarks.svg` | output path |
-| `font` | — | family inside `./fonts` |
-| `font_file` | — | explicit TTF/OTF |
+| `font` | — | catalogue family bundled with the action, e.g. `quicksand` |
+| `font_file` | — | custom TTF/OTF (not needed for the catalogue) |
 | `version` | `auto` | binary release tag |
 | `tool_path` | — | existing binary, no download (air-gapped runners) |
 
@@ -194,7 +199,7 @@ ignored, so the action can omit it.
 
 ```toml
 [font]
-family = "mplus-rounded"        # file stem in ./fonts
+family = "mplus-rounded"        # catalogue stem, or ./fonts/<stem>.ttf
 
 [render]
 title = "my benchmarks"
@@ -243,8 +248,16 @@ unmatched rows append unless `only_matched = true`.
 | `bar_curve` | `"linear"` | comparison cards only |
 | `missing` | `"skip"` | comparison cards only |
 
-`[font] family` selects a file stem in `./fonts`; without it, `mplus-rounded` is preferred and only then
-the first font on disk. `BENCHCAT_FONT_DIR` adds a directory searched before `./fonts`.
+The action sets `BENCHCAT_FONT_DIR` to its own `fonts/` catalogue, so no repository font files are
+needed. Order: `font_file`/`--font-file` wins, then `font`/`--font` (or the `mplus-rounded` default)
+looked up in `BENCHCAT_FONT_DIR` and then `./fonts`, then any TTF/OTF in those directories. For the CLI
+outside the action, use `--font-file`, or `--font` with `./fonts/<stem>.ttf`, or
+`BENCHCAT_FONT_DIR=/path/to/fonts`.
+
+**Set exactly one font source.** `font_file` overrides `font`; `--font` overrides `[font] family`.
+`BENCHCAT_FONT__FAMILY` (double underscore) is the config override; do not set `BENCHCAT_FONT` or
+`BENCHCAT_FONT_FAMILY`, and do not set `BENCHCAT_FONT_DIR` when the action already provides it — those
+combinations are what produce config type/unknown-field errors.
 
 Each `[render]` key can be overridden from the environment: `BENCHCAT_RENDER__TITLE`,
 `BENCHCAT_RENDER__WIDTH`, `BENCHCAT_FONT__FAMILY` (double underscore nests).
@@ -273,7 +286,7 @@ no-op unless something actually changed.
 | `no benchmark records found` | wrong `format`; criterion needs the directory, not `estimates.json` |
 | `input path does not exist` | `input` is workspace-relative; the action must run after `actions/checkout` |
 | `unknown format` | use one of the names in the format table (aliases such as `ndjson`, `dart` work) |
-| `no font configured` | pass `font_file`, or put a TTF in `./fonts` |
+| `no font configured` | the action should not hit this; for the CLI pass `font_file`, use `--font` with `./fonts/<stem>.ttf`, or set `BENCHCAT_FONT_DIR` — never commit fonts |
 | rows missing | `max_rows`, `only_matched`, duplicate ids, or positional input ignored because the config has `[[series]]` |
 | unknown theme | `theme` must be `pastel` or `dark` |
 | bytes differ between machines | CRLF checkout or an edited font; keep LF |
