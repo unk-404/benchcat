@@ -225,7 +225,7 @@ fn benchmark_test_entry(value: &Value, name: &str) -> Result<Benchmark, InputErr
         .and_then(|stats| stats.get("relativeMarginOfError"))
         .and_then(Value::as_f64);
 
-    let mut extra = std::collections::BTreeMap::new();
+    let mut extra = crate::small_map::SmallMap::new();
     if let Some(extra_map) = value.as_object() {
         for (key, item) in extra_map {
             if !matches!(key.as_str(), "name" | "throughput" | "statistics") {

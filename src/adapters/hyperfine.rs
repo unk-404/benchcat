@@ -44,7 +44,7 @@ pub fn parse_hyperfine(value: &Value) -> Result<Vec<Benchmark>, String> {
             continue;
         };
 
-        let mut metrics = std::collections::BTreeMap::new();
+        let mut metrics = crate::small_map::SmallMap::new();
         if let Some(peak) = summary
             .and_then(|summary| summary.get("max"))
             .and_then(Value::as_f64)
@@ -56,7 +56,7 @@ pub fn parse_hyperfine(value: &Value) -> Result<Vec<Benchmark>, String> {
             metrics.insert("peak_bytes".to_owned(), peak);
         }
 
-        let mut extra = std::collections::BTreeMap::new();
+        let mut extra = crate::small_map::SmallMap::new();
         extra.insert("tool".to_owned(), Value::String("hyperfine".to_owned()));
         if !command.is_empty() {
             extra.insert("command".to_owned(), Value::String(command.clone()));

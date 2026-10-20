@@ -131,7 +131,7 @@ pub(crate) fn parse_criterion(
         _ => ("ns/op".to_owned(), point, Direction::Lower),
     };
 
-    let mut extra = std::collections::BTreeMap::new();
+    let mut extra = crate::small_map::SmallMap::new();
     extra.insert("tool".to_owned(), Value::String("criterion".to_owned()));
     if let Some(group) = &group_id {
         extra.insert("criterion_group".to_owned(), Value::String(group.clone()));

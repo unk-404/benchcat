@@ -1,7 +1,7 @@
 //! `[[row]]` mapping: rename rows, override units, and transform values with
 //! regex captures, without writing any code.
 
-use std::collections::BTreeMap;
+use crate::small_map::SmallMap;
 
 use serde_json::Value;
 
@@ -76,7 +76,7 @@ pub fn apply(rule: &RowRule, benchmark: &Benchmark, captures: &[String]) -> Resu
 }
 
 /// `$1` → first capture, `{workers}` → a structured parameter.
-fn substitute(template: &str, captures: &[String], params: &BTreeMap<String, Value>) -> String {
+fn substitute(template: &str, captures: &[String], params: &SmallMap<String, Value>) -> String {
     let mut out = String::with_capacity(template.len());
     let bytes = template.as_bytes();
     let mut index = 0;
@@ -137,11 +137,11 @@ mod tests {
             unit: unit.to_owned(),
             value,
             direction: Direction::Higher,
-            params: BTreeMap::new(),
-            metrics: BTreeMap::new(),
+            params: SmallMap::new(),
+            metrics: SmallMap::new(),
             stats: Stats::default(),
             deterministic: false,
-            extra: BTreeMap::new(),
+            extra: SmallMap::new(),
         }
     }
 

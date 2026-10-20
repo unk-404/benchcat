@@ -1,6 +1,6 @@
 //! Canonical benchmark data model shared by every input format and the renderer.
 
-use std::collections::BTreeMap;
+use crate::small_map::SmallMap;
 
 use serde::{Deserialize, Serialize};
 
@@ -62,10 +62,10 @@ pub struct Benchmark {
     pub direction: Direction,
     /// Structured parameters (`workers`, `batch`, `block_size`, ...).
     #[serde(default)]
-    pub params: BTreeMap<String, serde_json::Value>,
+    pub params: SmallMap<String, serde_json::Value>,
     /// Secondary numbers that must not drive the bar (`max_rss_bytes`, `instr`, ...).
     #[serde(default)]
-    pub metrics: BTreeMap<String, f64>,
+    pub metrics: SmallMap<String, f64>,
     #[serde(default)]
     pub stats: Stats,
     /// Instruction-count style metrics: gate on a narrow tolerance, not on noise.
@@ -73,7 +73,7 @@ pub struct Benchmark {
     pub deterministic: bool,
     /// Unknown fields preserved for templates and diagnostics.
     #[serde(flatten)]
-    pub extra: BTreeMap<String, serde_json::Value>,
+    pub extra: SmallMap<String, serde_json::Value>,
 }
 
 fn default_unit() -> String {
