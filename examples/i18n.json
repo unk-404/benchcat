@@ -1,0 +1,45 @@
+{
+  "schema": "benchcat/report@1",
+  "meta": {
+    "tool": "benchcat",
+    "tool_version": "0.1.0"
+  },
+  "benchmarks": [
+    {
+      "id": "io.read.en",
+      "group": "English only",
+      "label": "Sequential read",
+      "note": "Latin only, drawn by the primary face",
+      "unit": "MiB/s",
+      "value": 2048.0,
+      "direction": "higher"
+    },
+    {
+      "id": "io.read.ja",
+      "group": "日本語 only",
+      "label": "順次読み込み",
+      "note": "M PLUS Rounded fallback · 中文/한국어 still missing",
+      "unit": "MiB/s",
+      "value": 1980.0,
+      "direction": "higher"
+    },
+    {
+      "id": "io.read.zh",
+      "group": "中文 + 한국어",
+      "label": "顺序读取",
+      "note": "ZCOOL KuaiLe fallback",
+      "unit": "MiB/s",
+      "value": 1920.0,
+      "direction": "higher"
+    },
+    {
+      "id": "io.read.ko",
+      "group": "中文 + 한국어",
+      "label": "순차 읽기",
+      "note": "Gaegu fallback",
+      "unit": "MiB/s",
+      "value": 1860.0,
+      "direction": "higher"
+    }
+  ]
+}

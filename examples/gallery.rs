@@ -11,7 +11,7 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 use benchcat::config::Config;
-use benchcat::font::FontStack;
+use benchcat::font::{FontStack, load_stack};
 use benchcat::input::{self, Format, Loaded};
 use benchcat::model::{Benchmark, Direction, Meta, Platform, Stats};
 use benchcat::render::{RenderRequest, SeriesInput, load_font};
@@ -38,6 +38,7 @@ const NAMES: &[&str] = &[
     "13-sections",
     "14-missing",
     "15-bar-scale",
+    "16-font-fallback",
 ];
 
 fn selected(name: &str) -> bool {
@@ -312,6 +313,34 @@ fn main() -> Result<(), Box<dyn Error>> {
             ("Windows x64", Some("#8CB8F0"), &windows.benchmarks),
             ("macOS arm64", Some("#F2B984"), &macos.benchmarks),
         ],
+        with_png,
+    )?;
+
+    // 16 · multi-face fallback: Latin primary, then per-character faces for
+    // Japanese, Chinese and Korean.
+    let i18n = load("examples/i18n.json")?;
+    let fallback_font = load_stack(
+        None,
+        &[
+            "quicksand".to_owned(),
+            "mplus-rounded".to_owned(),
+            "zcool-kuaile".to_owned(),
+            "gaegu".to_owned(),
+        ],
+        false,
+    )?;
+    let mut config = Config::default();
+    config.render.title = Some("font fallback".to_owned());
+    config.render.subtitle =
+        Some("one primary face, a different fallback for each script".to_owned());
+    config.render.footer =
+        Some("Quicksand primary · M PLUS Rounded / ZCOOL KuaiLe / Gaegu fallbacks".to_owned());
+    emit(
+        &fallback_font,
+        "16-font-fallback",
+        &config,
+        &i18n.meta,
+        &[("", None, &i18n.benchmarks)],
         with_png,
     )?;
 

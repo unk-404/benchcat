@@ -242,6 +242,7 @@ cat, and keep the row for a script with no coverage at all.
 | [`13-sections.svg`](assets/examples/13-sections.svg) | `group` fields become section headings |
 | [`14-missing.svg`](assets/examples/14-missing.svg) | a missing source is skipped and the row shrinks |
 | [`15-bar-scale.svg`](assets/examples/15-bar-scale.svg) | `bar_scale = "global"` |
+| [`16-font-fallback.svg`](assets/examples/16-font-fallback.svg) | English only → Japanese fallback → Chinese + Korean fallbacks |
 
 ```bash
 cargo run --example gallery                      # SVGs into assets/examples/
