@@ -106,7 +106,7 @@ log "downloading $url"
 if ! curl -fsSL --retry 3 --retry-delay 2 -o "$archive" "$url"; then
   # Releases published before the repository was renamed still use the
   # bench-svg-* asset names; fall back so `version: latest` keeps working.
-  legacy_url="${url/benchcat-/bench-svg-}"
+  legacy_url="${url%/*}/bench-svg-$target.tar.gz"
   if [[ "$legacy_url" == "$url" ]]; then
     fail "download failed; pass tool-path, or set BENCHCAT_RELEASE_BASE to a mirror"
   fi
