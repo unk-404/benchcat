@@ -21,6 +21,11 @@ use benchcat::render::{RenderRequest, RenderedParts, SeriesInput, load_font, ren
     about = "Render benchmark results as a self-contained SVG card for READMEs"
 )]
 struct Cli {
+    /// Enable diagnostic logging on stderr, e.g. `--log info` or `--log debug`.
+    /// Off unless given; CI and the composite action never pass it.
+    #[arg(long, value_name = "FILTER", global = true)]
+    log: Option<String>,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -97,19 +102,24 @@ struct RenderArgs {
     stdout: bool,
 }
 
-fn init_logging() {
-    use tracing_subscriber::EnvFilter;
-
-    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("off"));
+fn init_logging(filter: &str) -> Result<(), String> {
+    let filter = tracing_subscriber::EnvFilter::try_new(filter)
+        .map_err(|err| format!("invalid --log filter: {err}"))?;
     let _ = tracing_subscriber::fmt()
         .with_env_filter(filter)
         .with_writer(std::io::stderr)
         .try_init();
+    Ok(())
 }
 
 fn main() -> ExitCode {
-    init_logging();
     let cli = Cli::parse();
+    if let Some(filter) = &cli.log
+        && let Err(message) = init_logging(filter)
+    {
+        eprintln!("benchcat: {message}");
+        return ExitCode::from(2);
+    }
     match run(cli) {
         Ok(()) => ExitCode::SUCCESS,
         Err(message) => {
