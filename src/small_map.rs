@@ -2,9 +2,10 @@
 //!
 //! A benchmark row has a handful of parameters, not hundreds. `BTreeMap` pays
 //! for a node allocation on the first insert and a tree descent on every
-//! lookup; a sorted `Vec` keeps the same deterministic key order with one small
-//! contiguous allocation, binary search, and an `insert` that shifts at most a
-//! few elements.
+//! lookup; most maps here hold exactly one entry, so the common case is stored
+//! inline in an `One` variant, with a sorted `Vec` only once a second key
+//! arrives. Iteration stays sorted, which keeps note text and serialization
+//! deterministic.
 
 use std::borrow::Borrow;
 use std::marker::PhantomData;
@@ -15,47 +16,98 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// A sorted map with the API used by the benchmark model.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct SmallMap<K, V> {
-    entries: Vec<(K, V)>,
+#[derive(Clone, Debug, Default)]
+pub enum SmallMap<K, V> {
+    #[default]
+    Empty,
+    One(K, V),
+    Many(Vec<(K, V)>),
 }
+
+impl<K: PartialEq, V: PartialEq> PartialEq for SmallMap<K, V> {
+    fn eq(&self, other: &Self) -> bool {
+        self.len() == other.len() && self.iter().eq(other.iter())
+    }
+}
+
+impl<K: Eq, V: Eq> Eq for SmallMap<K, V> {}
 
 impl<K, V> SmallMap<K, V> {
     pub fn new() -> Self {
-        Self {
-            entries: Vec::new(),
-        }
+        Self::Empty
     }
 
     pub fn len(&self) -> usize {
-        self.entries.len()
+        match self {
+            Self::Empty => 0,
+            Self::One(..) => 1,
+            Self::Many(entries) => entries.len(),
+        }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.len() == 0
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&K, &V)> + '_ {
-        self.entries.iter().map(|(key, value)| (key, value))
+        let single = match self {
+            Self::One(key, value) => Some((key, value)),
+            _ => None,
+        };
+        let many: &[(K, V)] = match self {
+            Self::Many(entries) => entries,
+            _ => &[],
+        };
+        single
+            .into_iter()
+            .chain(many.iter().map(|(key, value)| (key, value)))
     }
 
     pub fn keys(&self) -> impl Iterator<Item = &K> + '_ {
-        self.entries.iter().map(|(key, _)| key)
+        self.iter().map(|(key, _)| key)
     }
 
     pub fn values(&self) -> impl Iterator<Item = &V> + '_ {
-        self.entries.iter().map(|(_, value)| value)
+        self.iter().map(|(_, value)| value)
     }
 }
 
 impl<K: Ord, V> SmallMap<K, V> {
     /// Insert, replacing an existing key; returns the old value.
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
-        match self.entries.binary_search_by(|(probe, _)| probe.cmp(&key)) {
-            Ok(index) => Some(std::mem::replace(&mut self.entries[index].1, value)),
-            Err(index) => {
-                self.entries.insert(index, (key, value));
+        let old = std::mem::replace(self, Self::Empty);
+        match old {
+            Self::Empty => {
+                *self = Self::One(key, value);
                 None
+            }
+            Self::One(existing_key, existing_value) => {
+                if existing_key == key {
+                    *self = Self::One(existing_key, value);
+                    Some(existing_value)
+                } else {
+                    let mut entries = Vec::with_capacity(4);
+                    if existing_key < key {
+                        entries.push((existing_key, existing_value));
+                        entries.push((key, value));
+                    } else {
+                        entries.push((key, value));
+                        entries.push((existing_key, existing_value));
+                    }
+                    *self = Self::Many(entries);
+                    None
+                }
+            }
+            Self::Many(mut entries) => {
+                let old = match entries.binary_search_by(|(probe, _)| probe.cmp(&key)) {
+                    Ok(index) => Some(std::mem::replace(&mut entries[index].1, value)),
+                    Err(index) => {
+                        entries.insert(index, (key, value));
+                        None
+                    }
+                };
+                *self = Self::Many(entries);
+                old
             }
         }
     }
@@ -65,10 +117,20 @@ impl<K: Ord, V> SmallMap<K, V> {
         K: Borrow<Q>,
         Q: Ord + ?Sized,
     {
-        self.entries
-            .binary_search_by(|(probe, _)| probe.borrow().cmp(key))
-            .ok()
-            .map(|index| &self.entries[index].1)
+        match self {
+            Self::Empty => None,
+            Self::One(existing_key, value) => {
+                if existing_key.borrow().cmp(key).is_eq() {
+                    Some(value)
+                } else {
+                    None
+                }
+            }
+            Self::Many(entries) => entries
+                .binary_search_by(|(probe, _)| probe.borrow().cmp(key))
+                .ok()
+                .map(|index| &entries[index].1),
+        }
     }
 
     pub fn get_key_value<Q>(&self, key: &Q) -> Option<(&K, &V)>
@@ -76,13 +138,23 @@ impl<K: Ord, V> SmallMap<K, V> {
         K: Borrow<Q>,
         Q: Ord + ?Sized,
     {
-        self.entries
-            .binary_search_by(|(probe, _)| probe.borrow().cmp(key))
-            .ok()
-            .map(|index| {
-                let (key, value) = &self.entries[index];
-                (key, value)
-            })
+        match self {
+            Self::Empty => None,
+            Self::One(existing_key, value) => {
+                if existing_key.borrow().cmp(key).is_eq() {
+                    Some((existing_key, value))
+                } else {
+                    None
+                }
+            }
+            Self::Many(entries) => entries
+                .binary_search_by(|(probe, _)| probe.borrow().cmp(key))
+                .ok()
+                .map(|index| {
+                    let (key, value) = &entries[index];
+                    (key, value)
+                }),
+        }
     }
 
     pub fn contains_key<Q>(&self, key: &Q) -> bool
@@ -90,9 +162,7 @@ impl<K: Ord, V> SmallMap<K, V> {
         K: Borrow<Q>,
         Q: Ord + ?Sized,
     {
-        self.entries
-            .binary_search_by(|(probe, _)| probe.borrow().cmp(key))
-            .is_ok()
+        self.get(key).is_some()
     }
 }
 
@@ -123,24 +193,6 @@ impl<K: Ord, V> Extend<(K, V)> for SmallMap<K, V> {
         for (key, value) in iter {
             self.insert(key, value);
         }
-    }
-}
-
-impl<K, V> IntoIterator for SmallMap<K, V> {
-    type Item = (K, V);
-    type IntoIter = std::vec::IntoIter<(K, V)>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.entries.into_iter()
-    }
-}
-
-impl<'a, K, V> IntoIterator for &'a SmallMap<K, V> {
-    type Item = (&'a K, &'a V);
-    type IntoIter = Box<dyn Iterator<Item = (&'a K, &'a V)> + 'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Box::new(self.iter())
     }
 }
 
@@ -216,6 +268,17 @@ mod tests {
     }
 
     #[test]
+    fn compares_semantically_across_variants() {
+        let one: SmallMap<String, u8> = [("a".to_owned(), 1)].into_iter().collect();
+        let mut many = SmallMap::new();
+        many.insert("a".to_owned(), 1);
+        many.insert("b".to_owned(), 2);
+        assert_eq!(one, SmallMap::One("a".to_owned(), 1));
+        assert_ne!(one, many);
+        assert_eq!(many.clone(), many);
+    }
+
+    #[test]
     fn round_trips_json_and_flatten() {
         let mut params = SmallMap::new();
         params.insert("workers".to_owned(), json!(4));
@@ -239,12 +302,13 @@ mod tests {
     }
 
     #[test]
-    fn compares_in_key_order() {
-        let one: SmallMap<String, u8> = [("a".to_owned(), 1), ("b".to_owned(), 2)]
-            .into_iter()
-            .collect();
-        assert_eq!(one.iter().count(), 2);
+    fn handles_empty_and_single_variants() {
+        let empty: SmallMap<String, u8> = SmallMap::new();
+        assert!(empty.is_empty());
+        assert_eq!(empty.iter().count(), 0);
+        let one: SmallMap<String, u8> = [("a".to_owned(), 1)].into_iter().collect();
+        assert_eq!(one.len(), 1);
+        assert_eq!(one.iter().next(), Some((&"a".to_owned(), &1)));
         assert!(!one.is_empty());
-        assert!(SmallMap::<String, u8>::new().is_empty());
     }
 }
