@@ -284,8 +284,9 @@ pub fn render_parts(
 }
 
 const PARALLEL_ROWS: usize = 256;
-/// Fixed chunk count: four workers is what CI runners have, and more chunks
-/// only add contention on large machines.
+/// Four chunks: measured on a 32-thread machine, 8/16/32 chunks were slower
+/// (memory-bandwidth and allocator contention), while CI runners have four
+/// cores. The fixed count keeps the output identical everywhere.
 const ROW_CHUNKS: usize = 4;
 
 /// One card: tooltip, cat badge, label, bars, values.
