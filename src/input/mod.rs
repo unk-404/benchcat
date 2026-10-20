@@ -5,8 +5,10 @@
 
 use hashbrown::HashMap;
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 use rayon::prelude::*;
+use tracing::debug;
 
 use crate::model::{Benchmark, Meta, json_scalar};
 
@@ -82,6 +84,7 @@ pub struct Loaded {
 
 /// Expand directories, then parse every file with the requested (or detected) format.
 pub fn load(paths: &[PathBuf], format: Format) -> Result<Loaded, InputError> {
+    let started = Instant::now();
     let mut loaded = Loaded::default();
     let mut files = Vec::new();
 
@@ -146,6 +149,13 @@ pub fn load(paths: &[PathBuf], format: Format) -> Result<Loaded, InputError> {
                 .join(", "),
         ));
     }
+    debug!(
+        files = files.len(),
+        rows = loaded.benchmarks.len(),
+        bytes = total_bytes,
+        elapsed_ms = started.elapsed().as_secs_f64() * 1_000.0,
+        "loaded inputs"
+    );
     Ok(loaded)
 }
 

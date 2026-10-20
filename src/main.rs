@@ -4,8 +4,10 @@ use std::path::PathBuf;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use std::process::ExitCode;
+use std::time::Instant;
 
 use clap::{Parser, Subcommand};
+use tracing::{debug, info};
 
 use benchcat::config::Config;
 use benchcat::input::{self, Format};
@@ -94,7 +96,18 @@ struct RenderArgs {
     stdout: bool,
 }
 
+fn init_logging() {
+    use tracing_subscriber::EnvFilter;
+
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_writer(std::io::stderr)
+        .try_init();
+}
+
 fn main() -> ExitCode {
+    init_logging();
     let cli = Cli::parse();
     match run(cli) {
         Ok(()) => ExitCode::SUCCESS,
@@ -166,6 +179,7 @@ fn render(args: RenderArgs) -> Result<(), String> {
     }
 
     // Each source is loaded independently so they can use different formats.
+    let load_start = Instant::now();
     let mut loaded = Vec::new();
     if config.series.is_empty() {
         if args.inputs.is_empty() {
@@ -190,6 +204,16 @@ fn render(args: RenderArgs) -> Result<(), String> {
             );
         }
     }
+
+    info!(
+        sources = loaded.len(),
+        rows = loaded
+            .iter()
+            .map(|source| source.benchmarks.len())
+            .sum::<usize>(),
+        elapsed_ms = load_start.elapsed().as_secs_f64() * 1_000.0,
+        "loaded benchmark data"
+    );
 
     // The first source carries the provenance for the whole card.
     let mut meta = loaded
@@ -216,6 +240,7 @@ fn render(args: RenderArgs) -> Result<(), String> {
     let font = load_font(args.font_file.as_deref(), family.as_deref()).map_err(|err| {
         format!("{err}\nhint: pass --font-file, set BENCHCAT_FONT_DIR, or place a .ttf in ./fonts")
     })?;
+    debug!(font = %font.family, "font loaded");
 
     let series: Vec<SeriesInput<'_>> = loaded
         .iter()
@@ -230,6 +255,7 @@ fn render(args: RenderArgs) -> Result<(), String> {
         })
         .collect();
 
+    let render_start = Instant::now();
     let rendered = benchcat::render::render(RenderRequest {
         config: &config,
         meta: &meta,
@@ -237,6 +263,13 @@ fn render(args: RenderArgs) -> Result<(), String> {
         font: &font,
     })
     .map_err(|err| err.to_string())?;
+
+    info!(
+        rows = rendered.rows,
+        bytes = rendered.svg.len(),
+        elapsed_ms = render_start.elapsed().as_secs_f64() * 1_000.0,
+        "rendered card"
+    );
 
     for warning in &rendered.warnings {
         eprintln!("warning: {warning}");
@@ -255,8 +288,15 @@ fn render(args: RenderArgs) -> Result<(), String> {
             std::fs::create_dir_all(parent)
                 .map_err(|err| format!("cannot create {}: {err}", parent.display()))?;
         }
+        let write_start = Instant::now();
         std::fs::write(&path, &rendered.svg)
             .map_err(|err| format!("cannot write {}: {err}", path.display()))?;
+        info!(
+            path = %path.display(),
+            bytes = rendered.svg.len(),
+            elapsed_ms = write_start.elapsed().as_secs_f64() * 1_000.0,
+            "wrote svg"
+        );
     }
 
     eprintln!(

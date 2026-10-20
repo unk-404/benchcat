@@ -1,6 +1,7 @@
 //! Orchestration: canonical models in, one SVG string out.
 
 use std::path::Path;
+use std::time::Instant;
 
 use crate::config::Config;
 use crate::font::Font;
@@ -8,6 +9,7 @@ use crate::layout::{LayoutOptions, LegendItem, layout};
 use crate::model::{Benchmark, Meta};
 use crate::svg::{self, RenderInput};
 use crate::template::{self, Context as TemplateContext};
+use tracing::debug;
 
 #[derive(Debug, thiserror::Error)]
 pub enum RenderError {
@@ -45,6 +47,8 @@ pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
         svg::theme(&render.theme).ok_or_else(|| RenderError::UnknownTheme(render.theme.clone()))?;
     let multi_series = request.series.len() > 1;
 
+    let started = Instant::now();
+
     let legend: Vec<LegendItem> = if multi_series {
         request
             .series
@@ -64,7 +68,14 @@ pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
         Vec::new()
     };
 
+    let merge_start = Instant::now();
     let rows = merge_rows(request.series, multi_series, request.config)?;
+    debug!(
+        series = request.series.len(),
+        rows = rows.len(),
+        elapsed_ms = merge_start.elapsed().as_secs_f64() * 1_000.0,
+        "merged sources"
+    );
     let rows = match render.max_rows {
         Some(limit) if rows.len() > limit => &rows[..limit],
         _ => &rows[..],
@@ -107,7 +118,13 @@ pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
         footer: footer.clone(),
         legend,
     };
+    let layout_start = Instant::now();
     let plan = layout(request.font, rows, &options)?;
+    debug!(
+        elapsed_ms = layout_start.elapsed().as_secs_f64() * 1_000.0,
+        "laid out card"
+    );
+    let svg_start = Instant::now();
     let output = svg::render(
         request.font,
         &plan,
@@ -118,6 +135,16 @@ pub fn render(request: RenderRequest<'_>) -> Result<Rendered, RenderError> {
             kaomoji: &render.kaomoji,
         },
         theme,
+    );
+
+    debug!(
+        bytes = output.svg.len(),
+        elapsed_ms = svg_start.elapsed().as_secs_f64() * 1_000.0,
+        "wrote svg tree"
+    );
+    debug!(
+        total_ms = started.elapsed().as_secs_f64() * 1_000.0,
+        "render complete"
     );
 
     Ok(Rendered {

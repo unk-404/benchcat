@@ -111,6 +111,9 @@ seconds are formatted as ms/µs.
 
 `benchcat formats` lists the accepted format names.
 
+Set `RUST_LOG=info` (or `debug`) to get stage timings on stderr; the SVG written to a file or stdout
+is unaffected.
+
 ## Config
 
 `benchcat.toml` is discovered from the working directory; `--config` overrides it.

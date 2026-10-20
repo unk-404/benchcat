@@ -40,6 +40,13 @@ Two machines must produce byte-identical SVGs:
   and glyph extraction returns results in `gids` order even when rayon runs;
 - `.gitattributes` forces LF; never commit a CRLF SVG.
 
+## Logging
+
+`tracing` is initialised in `src/main.rs`; `RUST_LOG` selects the filter (default `warn`). `info` logs
+input loading, render and write timings; `debug` adds merge/layout/SVG phase timings and font loading.
+Logs go to stderr, so `-o -` stays a clean SVG stream. Keep hot-loop logging out of the renderer;
+`debug!` costs a disabled callsite check.
+
 ## Map types
 
 The model uses std `BTreeMap` for `params`/`metrics`/`extra`: those maps are tiny, and an A/B run with
