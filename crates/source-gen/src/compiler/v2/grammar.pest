@@ -1,0 +1,38 @@
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
+source = { SOI ~ "source" ~ ident ~ aliases? ~ extensions? ~ "{" ~ item* ~ "}" ~ EOI }
+aliases = { "aliases" ~ string_array }
+extensions = { "extensions" ~ string_array }
+string_array = { "[" ~ (string ~ ("," ~ string)*)? ~ ","? ~ "]" }
+
+item = { inputs | rows | params | metrics | stats }
+
+inputs = { "inputs" ~ "{" ~ input_variant+ ~ "}" }
+input_variant = { variant_kind ~ "{" ~ accept ~ record ~ "}" }
+variant_kind = { "markdown" | "csv" }
+accept = { "accept" ~ "header" ~ string ~ ";" }
+record = { "record" ~ "{" ~ pair* ~ "}" }
+
+rows = { "rows" ~ "{" ~ row_field* ~ "}" }
+row_field = { row_name ~ ":" ~ expr ~ ";" }
+row_name = { "id" | "value" | "unit" | "label" | "group" | "note" | "direction" | "where" }
+
+params = { "params" ~ "{" ~ pair* ~ "}" }
+metrics = { "metrics" ~ "{" ~ pair* ~ "}" }
+stats = { "stats" ~ "{" ~ pair* ~ "}" }
+pair = { ident ~ ":" ~ expr ~ ";" }
+
+expr = { coalesce ~ ("|>" ~ call)* }
+coalesce = { primary ~ ("??" ~ primary)* }
+primary = { "(" ~ expr ~ ")" | call | string | number | boolean | ident }
+call = { func ~ "(" ~ (expr ~ ("," ~ expr)*)? ~ ")" }
+func = @{
+    "cell" | "measurement_value" | "measurement_unit" |
+    "to_number" | "to_text" | "has" | "if" | "concat" |
+    "strip_prefix" | "last" | "drop_last" | "time_scale" | "percent"
+}
+boolean = { "true" | "false" }
+number = @{ "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)? ~ (("e"|"E") ~ ("+"|"-")? ~ ASCII_DIGIT+)? }
+string = ${ "\"" ~ (("\\" ~ ANY) | (!"\"" ~ ANY))* ~ "\"" }
+ident = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }

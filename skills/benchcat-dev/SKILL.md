@@ -32,7 +32,8 @@ crates/benchcat/
 crates/source-gen/
   src/lib.rs               .oops scanner + @version dispatch
   src/compiler/mod.rs      version -> compiler
-  src/compiler/v1/         frozen v1 grammar/AST/checks/codegen
+  src/compiler/v1/         frozen v1 grammar/AST/codegen
+  src/compiler/v2/         multi-format table grammar/AST/codegen
 sources/                   versioned .oops presets
 docs/spec/                 normative OOPS and versioning specifications
 fonts/, assets/            runtime catalogue and committed generated assets

@@ -21,6 +21,7 @@
 | File | `--format` | Input |
 |---|---|---|
 | `androidx.oops` | `androidx` | AndroidX `benchmarkData.json` |
+| `benchmarkdotnet.oops` | `benchmarkdotnet` (`csharp`, `dotnet`) | BenchmarkDotNet Markdown/CSV |
 | `benchmark_runner.oops` | `benchmark-runner` | Dart `benchmark_runner` report |
 | `benchmark_test_benchmarkjs.oops` | `benchmark-test-benchmarkjs` | Dart `benchmark_test --output=benchmarkjs` |
 | `benchmark_test_human.oops` | `benchmark-test-human` | Dart `benchmark_test` human output |

@@ -1,0 +1,4 @@
+BM_Parse/1KiB  612 ns  600 ns  1000
+BM_Parse/8KiB  894 ns  880 ns  500
+BM_Encode/1KiB 704 ns  700 ns  800
+BM_Hash        322 ns  320 ns  2000

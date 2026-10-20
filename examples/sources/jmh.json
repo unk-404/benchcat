@@ -1,0 +1,6 @@
+[
+  {"benchmark":"bench.Parse.json","threads":4,"primaryMetric":{"score":812.0,"scoreUnit":"ns/op"}},
+  {"benchmark":"bench.Encode.json","threads":4,"primaryMetric":{"score":1040.0,"scoreUnit":"ns/op"}},
+  {"benchmark":"bench.Parse.toml","threads":4,"primaryMetric":{"score":1320.0,"scoreUnit":"ns/op"}},
+  {"benchmark":"bench.Hash.sha256","threads":4,"primaryMetric":{"score":540.0,"scoreUnit":"ns/op"}}
+]

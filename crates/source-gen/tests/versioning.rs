@@ -50,8 +50,8 @@ fn every_oops_declares_a_supported_version() {
             .find(|line| !line.is_empty() && !line.starts_with("//"))
             .unwrap_or_default();
         assert!(
-            first == "@version 1",
-            "{} must start with @version 1, got {first:?}",
+            first == "@version 1" || first == "@version 2",
+            "{} must start with a supported @version, got {first:?}",
             file.display()
         );
         seen += 1;
@@ -72,5 +72,5 @@ fn compiler_directories_match_supported_versions() {
         }
     }
     versions.sort_unstable();
-    assert_eq!(versions, vec![1]);
+    assert_eq!(versions, vec![1, 2]);
 }

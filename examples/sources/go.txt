@@ -1,0 +1,6 @@
+goos: linux
+goarch: amd64
+BenchmarkParseJSON-8  200000  812 ns/op
+BenchmarkEncodeJSON-8  150000  1040 ns/op
+BenchmarkParseTOML-8  120000  1320 ns/op
+BenchmarkHash-8  300000  540 ns/op

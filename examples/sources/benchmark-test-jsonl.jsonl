@@ -1,0 +1,3 @@
+{"name":"parseJson","throughput":{"value":1234.5,"unit":"ops/s"},"statistics":{"relativeMarginOfError":1.25},"compiler":"jit"}
+{"name":"parseToml","throughput":{"value":812.3,"unit":"ops/s"},"statistics":{"relativeMarginOfError":1.6},"compiler":"jit"}
+{"name":"hash","throughput":{"value":2450.8,"unit":"ops/s"},"statistics":{"relativeMarginOfError":0.8},"compiler":"jit"}

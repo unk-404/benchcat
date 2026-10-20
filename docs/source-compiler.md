@@ -2,7 +2,8 @@
 
 Normative documents:
 
-- [OOPS Language Specification v1](spec/oops-v1.md) — syntax, semantics, diagnostics, code-generation contract.
+- [OOPS Language Specification v1](spec/oops-v1.md) — frozen single-format language.
+- [OOPS Language Specification v2](spec/oops-v2.md) — multi-format table variants and BenchmarkDotNet.
 - [Compiler Versioning Specification](spec/compiler-versioning.md) — version selection, dependency direction, immutability, fixtures, tags.
 
 Normative source directory:

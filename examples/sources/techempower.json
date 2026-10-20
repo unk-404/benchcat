@@ -1,0 +1,1 @@
+{"concurrencyLevels":[16,64],"rawData":{"json":{"framework-a":{"results":[{"requestsPerSecond":120000},{"requestsPerSecond":145000}]},"framework-b":{"results":[{"requestsPerSecond":98000},{"requestsPerSecond":112000}]},"framework-c":{"results":[{"requestsPerSecond":76000},{"requestsPerSecond":88000}]}}}}

@@ -1,0 +1,56 @@
+{
+  "schema_version": 2,
+  "metadata": {
+    "hyperfine_version": "1.19.0",
+    "start_time": "2026-10-19T09:00:00Z",
+    "platform": { "os": "linux", "architecture": "x86_64" },
+    "primary_metric": "time_wall_clock"
+  },
+  "results": [
+    {
+      "command": "rg --count pattern src/",
+      "name": "ripgrep",
+      "summary": {
+        "time_wall_clock": {
+          "unit": "second",
+          "count": 20,
+          "mean": 0.042,
+          "stddev": 0.0021,
+          "median": 0.041,
+          "min": 0.039,
+          "max": 0.048
+        }
+      }
+    },
+    {
+      "command": "grep -rc pattern src/",
+      "name": "grep",
+      "summary": {
+        "time_wall_clock": {
+          "unit": "second",
+          "count": 20,
+          "mean": 0.118,
+          "stddev": 0.004,
+          "median": 0.117,
+          "min": 0.112,
+          "max": 0.129
+        }
+      }
+    },
+    {
+      "command": "git grep -c pattern",
+      "name": "git grep",
+      "summary": {
+        "time_wall_clock": {
+          "unit": "second",
+          "count": 20,
+          "mean": 0.061,
+          "stddev": 0.0025,
+          "median": 0.060,
+          "min": 0.057,
+          "max": 0.067
+        }
+      }
+    }
+  ]
+}

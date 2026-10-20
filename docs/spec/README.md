@@ -3,6 +3,7 @@
 | Spec ID | Version | Status | Document |
 |---|---|---|---|
 | `oops-v1` | 1 | normative, frozen | [oops-v1.md](oops-v1.md) |
+| `oops-v2` | 2 | normative | [oops-v2.md](oops-v2.md) |
 | `oops-compiler-versioning` | 1 | normative | [compiler-versioning.md](compiler-versioning.md) |
 
 Rules:

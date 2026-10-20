@@ -19,6 +19,7 @@ pub mod small_map;
 pub mod source;
 pub mod sources;
 pub mod svg;
+pub mod table;
 pub mod template;
 
 pub use config::Config;

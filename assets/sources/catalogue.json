@@ -5,126 +5,165 @@
       "format": "go",
       "id": "go",
       "image": "go.svg",
-      "input": "target/source-examples/go.txt",
+      "input": "examples/sources/go.txt",
       "source": "sources/go.oops",
-      "title": "Go testing"
+      "title": "Go testing",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "JMH JSON; ns/op lower is better",
       "format": "jmh",
       "id": "jmh",
       "image": "jmh.svg",
-      "input": "target/source-examples/jmh.json",
+      "input": "examples/sources/jmh.json",
       "source": "sources/jmh.oops",
-      "title": "JMH"
+      "title": "JMH",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "cpu_time normalised to ns/op",
       "format": "google",
       "id": "google",
       "image": "google.svg",
-      "input": "target/source-examples/google.json",
+      "input": "examples/sources/google.json",
       "source": "sources/google.oops",
-      "title": "Google Benchmark JSON"
+      "title": "Google Benchmark JSON",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "BM_ columns copied from the console table",
       "format": "google-console",
       "id": "google-console",
       "image": "google-console.svg",
-      "input": "target/source-examples/google-console.txt",
+      "input": "examples/sources/google-console.txt",
       "source": "sources/google_console.oops",
-      "title": "Google Benchmark console"
+      "title": "Google Benchmark console",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "swift-benchmark --format json",
       "format": "swift",
       "id": "swift",
       "image": "swift.svg",
-      "input": "target/source-examples/swift.json",
+      "input": "examples/sources/swift.json",
       "source": "sources/swift.oops",
-      "title": "swift-benchmark"
+      "title": "swift-benchmark",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "benchmarkData.json; ns/op or ms/op",
       "format": "androidx",
       "id": "androidx",
       "image": "androidx.svg",
-      "input": "target/source-examples/androidx.json",
+      "input": "examples/sources/androidx.json",
       "source": "sources/androidx.oops",
-      "title": "AndroidX Benchmark"
+      "title": "AndroidX Benchmark",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "PHPBench JSONL report",
       "format": "phpbench",
       "id": "phpbench",
       "image": "phpbench.svg",
-      "input": "target/source-examples/phpbench.jsonl",
+      "input": "examples/sources/phpbench.jsonl",
       "source": "sources/phpbench.oops",
-      "title": "PHPBench"
+      "title": "PHPBench",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "results.json rawData; req/s higher is better",
       "format": "techempower",
       "id": "techempower",
       "image": "techempower.svg",
-      "input": "target/source-examples/techempower.json",
+      "input": "examples/sources/techempower.json",
       "source": "sources/techempower.oops",
-      "title": "TechEmpower"
+      "title": "TechEmpower",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "Dart benchmark_test default output",
       "format": "benchmark-test-human",
       "id": "benchmark-test-human",
       "image": "benchmark-test-human.svg",
-      "input": "target/source-examples/benchmark-test-human.txt",
+      "input": "examples/sources/benchmark-test-human.txt",
       "source": "sources/benchmark_test_human.oops",
-      "title": "benchmark_test human"
+      "title": "benchmark_test human",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "Dart benchmark_test --output=benchmarkjs",
       "format": "benchmark-test-benchmarkjs",
       "id": "benchmark-test-benchmarkjs",
       "image": "benchmark-test-benchmarkjs.svg",
-      "input": "target/source-examples/benchmark-test-benchmarkjs.txt",
+      "input": "examples/sources/benchmark-test-benchmarkjs.txt",
       "source": "sources/benchmark_test_benchmarkjs.oops",
-      "title": "benchmark_test BenchmarkJS"
+      "title": "benchmark_test BenchmarkJS",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "Dart benchmark_runner report blocks",
       "format": "benchmark-runner",
       "id": "benchmark-runner",
       "image": "benchmark-runner.svg",
-      "input": "target/source-examples/benchmark-runner.txt",
+      "input": "examples/sources/benchmark-runner.txt",
       "source": "sources/benchmark_runner.oops",
-      "title": "benchmark_runner"
+      "title": "benchmark_runner",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "criterion target directory",
       "format": "criterion",
       "id": "criterion",
       "image": "criterion.svg",
-      "input": "examples/criterion",
+      "input": "examples/sources/criterion",
       "source": "sources/criterion.oops",
-      "title": "Criterion"
+      "title": "Criterion",
+      "version": 1,
+      "version_label": "OOPS v1"
     },
     {
       "description": "Dart benchmark_test --output=jsonl",
       "format": "benchmark-test-jsonl",
       "id": "benchmark-test-jsonl",
       "image": "benchmark-test-jsonl.svg",
-      "input": "target/source-examples/benchmark-test-jsonl.jsonl",
+      "input": "examples/sources/benchmark-test-jsonl.jsonl",
       "source": null,
-      "title": "benchmark_test JSONL"
+      "title": "benchmark_test JSONL",
+      "version": null,
+      "version_label": "built-in"
+    },
+    {
+      "description": "C#/.NET Markdown and CSV tables; ns/op or us/op",
+      "format": "benchmarkdotnet",
+      "id": "benchmarkdotnet",
+      "image": "benchmarkdotnet.svg",
+      "input": "examples/sources/benchmarkdotnet.md",
+      "source": "sources/benchmarkdotnet.oops",
+      "title": "BenchmarkDotNet",
+      "version": 2,
+      "version_label": "OOPS v2"
     },
     {
       "description": "hyperfine --export-json",
       "format": "hyperfine",
       "id": "hyperfine",
       "image": "hyperfine.svg",
-      "input": "examples/hyperfine.json",
+      "input": "examples/sources/hyperfine.json",
       "source": null,
-      "title": "hyperfine"
+      "title": "hyperfine",
+      "version": null,
+      "version_label": "built-in"
     }
   ]
 }

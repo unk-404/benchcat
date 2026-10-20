@@ -1,0 +1,12 @@
+Benchmark: parseJson
+  1234.5 ops/sec
+  ±1.25% margin of error
+  10 runs sampled
+Benchmark: parseToml
+  812.3 ops/sec
+  ±1.60% margin of error
+  10 runs sampled
+Benchmark: hash
+  2450.8 ops/sec
+  ±0.80% margin of error
+  10 runs sampled

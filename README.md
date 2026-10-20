@@ -36,6 +36,7 @@ benchcat render google.json       -o assets/bench.svg                 # Google B
 benchcat render swift.json        -o assets/bench.svg                 # swift-benchmark JSON
 benchcat render bt-human.txt      -o assets/bench.svg                 # benchmark_test human
 benchcat render runner.txt        -o assets/bench.svg                 # benchmark_runner
+benchcat render benchmarkdotnet.md -o assets/bench.svg                # BenchmarkDotNet
 ```
 
 Same inputs produce the same bytes, so a committed SVG only changes when the data does:
@@ -49,7 +50,7 @@ git diff --quiet -- assets/bench.svg || git commit -am "bench: refresh [skip ci]
 `--format` accepts `auto` (default), `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`,
 `hyperfine`, and the preset formats `go`, `phpbench`, `jmh` (alias `kotlinx`), `google`,
 `google-console`, `swift`, `techempower`, `androidx`, `benchmark-test-human`,
-`benchmark-test-benchmarkjs` and `benchmark-runner`. Directories are walked recursively;
+`benchmark-test-benchmarkjs`, `benchmark-runner` and `benchmarkdotnet` (aliases `csharp`, `dotnet`). Directories are walked recursively;
 criterion's `report/` folder is skipped.
 
 Source presets live in [`sources/*.oops`](sources/README.md) and are compiled into the binary at
@@ -121,6 +122,7 @@ seconds are formatted as ms/µs.
 | `benchmark_test` BenchmarkJS | `--output=benchmarkjs` | `benchmark-test-benchmarkjs` |
 | `benchmark_test` JSONL | `--output=jsonl` | `benchmark_test` |
 | `benchmark_runner` | exported stdout / report | `benchmark-runner` |
+| BenchmarkDotNet | Markdown or CSV table | `benchmarkdotnet` (`csharp`, `dotnet`) |
 
 All of these are auto-detected from the file content. See [`sources/README.md`](sources/README.md) for
 the preset syntax.
@@ -131,7 +133,7 @@ the preset syntax.
 |---|---|
 | `INPUT...` | Files or directories |
 | `--out <FILE>` | Output path; `-` writes to stdout |
-| `--format <FORMAT>` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine`, `go`, `phpbench`, `jmh`, `google`, `google-console`, `swift`, `techempower`, `androidx`, `benchmark-test-human`, `benchmark-test-benchmarkjs`, `benchmark-runner` |
+| `--format <FORMAT>` | `auto`, `json`, `jsonl`, `csv`, `benchmark_test`, `criterion`, `hyperfine`, `go`, `phpbench`, `jmh`, `google`, `google-console`, `swift`, `techempower`, `androidx`, `benchmark-test-human`, `benchmark-test-benchmarkjs`, `benchmark-runner`, `benchmarkdotnet` |
 | `--config <FILE>` | Defaults to `./benchcat.toml` when present |
 | `--font <NAME>` | Family inside `./fonts` (or `BENCHCAT_FONT_DIR`), e.g. `quicksand` |
 | `--font-file <FILE>` | Explicit TTF/OTF path |
@@ -288,8 +290,9 @@ cargo run --example specimen -- --list            # font stems
 
 ## Source cards
 
-Every supported source gets a mock card under [`assets/sources/`](assets/sources/). The catalogue is
-[`catalogue.json`](assets/sources/catalogue.json); the same images populate the
+Every supported source gets a mock card under [`assets/sources/`](assets/sources/). Each card labels its
+OOPS version (`v1`, `v2`) or `built-in`. The catalogue is [`catalogue.json`](assets/sources/catalogue.json);
+the same images populate the
 [Sources wiki page](https://github.com/unk-404/benchcat/wiki/Sources).
 
 ```bash

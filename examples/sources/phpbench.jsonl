@@ -1,0 +1,3 @@
+[{"benchmark":"Bench","subject":"parseJson","mean":12.4,"unit":"us","rstdev":1.2}]
+[{"benchmark":"Bench","subject":"parseToml","mean":18.2,"unit":"us","rstdev":1.8}]
+[{"benchmark":"Bench","subject":"hash","mean":8.6,"unit":"us","rstdev":0.9}]

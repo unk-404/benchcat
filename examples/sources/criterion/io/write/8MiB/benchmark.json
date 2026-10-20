@@ -1,0 +1,8 @@
+{
+  "group_id": "io",
+  "function_id": "write",
+  "value_str": "8MiB",
+  "throughput": { "Bytes": 8388608 },
+  "full_id": "io/write/8MiB",
+  "directory_name": "write/8MiB"
+}

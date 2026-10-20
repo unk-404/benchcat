@@ -60,8 +60,8 @@ def build_page(
         "Cards below are generated from mock inputs by `cargo run --example sources`.",
         "Each card is parsed by the corresponding `.oops` source or built-in adapter.",
         "",
-        "| Format | Parser | Description |",
-        "|---|---|---|",
+        "| Format | OOPS | Parser | Description |",
+        "|---|---|---|---|",
     ]
     for entry in entries:
         source = entry.get("source")
@@ -69,8 +69,9 @@ def build_page(
             parser = f"[`{source}`]({blob_url(repo, branch, source)})"
         else:
             parser = "built-in"
+        version = entry.get("version_label", "built-in")
         lines.append(
-            f"| `{entry['format']}` | {parser} | {entry['description']} |"
+            f"| `{entry['format']}` | {version} | {parser} | {entry['description']} |"
         )
 
     for entry in entries:
@@ -79,7 +80,7 @@ def build_page(
                 "",
                 f"## {entry['title']}",
                 "",
-                f"`{entry['format']}`",
+                f"`{entry['format']}` · **{entry.get('version_label', 'built-in')}**",
                 "",
                 f"![{entry['title']}]({image_url(repo, branch, entry['image'])})",
                 "",

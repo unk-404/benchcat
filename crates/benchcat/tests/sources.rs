@@ -71,3 +71,17 @@ fn androidx_uses_the_same_metric_for_value_and_stats() {
     assert_eq!(row.stats.min, Some(2.0));
     assert_eq!(row.stats.max, Some(4.0));
 }
+
+#[test]
+fn benchmarkdotnet_v2_markdown_and_csv_have_the_same_shape() {
+    let markdown = "| Method | Mean | Error | StdDev | Median |\n|------- |-----:|------:|-------:|-------:|\n| Parse | 1.234 ns | 0.012 ns | 0.011 ns | 1.230 ns |\n";
+    let csv = "\"Method\",\"Mean\",\"Error\",\"StdDev\",\"Median\"\n\"Parse\",\"1.234 ns\",\"0.012 ns\",\"0.011 ns\",\"1.230 ns\"\n";
+    for text in [markdown, csv] {
+        let loaded = parse("benchmarkdotnet", text);
+        let row = &loaded.benchmarks[0];
+        assert_eq!(row.id, "Parse");
+        assert_eq!(row.unit, "ns/op");
+        assert_eq!(row.value, 1.234);
+        assert_eq!(row.stats.median, Some(1.23));
+    }
+}

@@ -1,0 +1,6 @@
+{"benchmarks":[
+  {"name":"BM_Parse/1KiB","cpu_time":612.0,"time_unit":"ns","iterations":1000},
+  {"name":"BM_Parse/8KiB","cpu_time":894.0,"time_unit":"ns","iterations":500},
+  {"name":"BM_Encode/1KiB","cpu_time":704.0,"time_unit":"ns","iterations":800},
+  {"name":"BM_Hash","cpu_time":322.0,"time_unit":"ns","iterations":2000}
+]}

@@ -123,12 +123,14 @@ The action needs no token and no write permission.
 | `benchmark_test` BenchmarkJS | `--output=benchmarkjs` | `benchmark-test-benchmarkjs` |
 | `benchmark_test` JSONL | `--output=jsonl` | `benchmark_test` |
 | `benchmark_runner` | exported stdout / report | `benchmark-runner` |
+| BenchmarkDotNet | Markdown or CSV table | `benchmarkdotnet` (`csharp`, `dotnet`) |
 | anything else | canonical JSON / CSV you emit | `json` / `jsonl` / `csv` |
 | unknown | — | `auto` |
 
 Directory inputs are read recursively in sorted order. `format` also accepts the aliases `ndjson`,
 `dart`, `canonical`, `cargo-criterion`, `java`, `kotlinx`, `gbench`, `c++`, `tfb` and
-`android-benchmark`. Source presets live in `sources/*.oops`; see `sources/README.md`. The
+`android-benchmark`. Source presets live in `sources/*.oops`; BenchmarkDotNet aliases are
+`csharp` and `dotnet`; see `sources/README.md`. The
 [Sources wiki page](https://github.com/unk-404/benchcat/wiki/Sources) shows one mock card per format.
 
 Canonical shape (`benchcat/report@1`):

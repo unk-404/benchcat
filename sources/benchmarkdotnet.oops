@@ -1,0 +1,46 @@
+@version 2
+
+source benchmarkdotnet
+    aliases ["csharp", "dotnet", "benchmarkdotnet"]
+    extensions ["md", "markdown", "csv"]
+{
+    inputs {
+        markdown {
+            accept header "| Method |";
+            record {
+                id: cell("Method");
+                value: measurement_value("Mean");
+                unit: measurement_unit("Mean");
+                error: measurement_value("Error");
+                stddev: measurement_value("StdDev");
+                median: measurement_value("Median");
+            }
+        }
+
+        csv {
+            accept header "Method";
+            record {
+                id: cell("Method");
+                value: measurement_value("Mean");
+                unit: measurement_unit("Mean");
+                error: measurement_value("Error");
+                stddev: measurement_value("StdDev");
+                median: measurement_value("Median");
+            }
+        }
+    }
+
+    rows {
+        id: id;
+        value: value;
+        unit: unit;
+        label: id;
+        direction: unit;
+        where: has(value);
+    }
+
+    stats {
+        stddev: stddev;
+        median: median;
+    }
+}
